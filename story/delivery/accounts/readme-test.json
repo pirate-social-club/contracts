@@ -1,0 +1,11 @@
+{
+  "alias": "readme-test",
+  "source": "keystone",
+  "address": "0xC7DfD7423E74156529579f420BC1CF04b39b7e48",
+  "xfp": "E9181CF3",
+  "derivationPath": "m/44'/1'/1'/0/1",
+  "publicKey": "0x026fe2355745bb2db3630bbc80ef5d58951c963c841f54170ba6e5c12be7fc12a6",
+  "bip32Key": "xpub6H8Qkexp9BdSgEwPAnhiEjp7NMXVEZWoAFWwon5mSwbuPZMfSUTpPwAP1Q2q2kYMRgRQ8udBpEj89wburY1vW7AWDuYpByteGogpB6pPprX",
+  "outputDescriptor": null,
+  "importedAt": "2026-04-17T06:18:52.653Z"
+}
