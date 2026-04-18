@@ -21,6 +21,9 @@ contract TokenGateActor {
 }
 
 contract TokenGateConditionTest {
+    bytes4 internal constant CHECK_READ_SELECTOR =
+        bytes4(keccak256("checkReadCondition(address,bytes,bytes)"));
+
     PurchaseEntitlementToken internal token;
     TokenGateCondition internal condition;
     TokenGateActor internal settlementMinter;
@@ -71,7 +74,7 @@ contract TokenGateConditionTest {
     function testRejectsZeroTokenAddressAndZeroMinBalance() public {
         (bool zeroTokenOk,) = address(condition).call(
             abi.encodeWithSelector(
-                TokenGateCondition.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 address(buyer),
                 abi.encode(address(0), TOKEN_ID, uint256(1)),
                 "0x"
@@ -81,7 +84,7 @@ contract TokenGateConditionTest {
 
         (bool zeroMinBalanceOk,) = address(condition).call(
             abi.encodeWithSelector(
-                TokenGateCondition.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 address(buyer),
                 abi.encode(address(token), TOKEN_ID, uint256(0)),
                 "0x"

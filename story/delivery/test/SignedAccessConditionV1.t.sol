@@ -14,6 +14,9 @@ address constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code
 Vm constant vm = Vm(VM_ADDRESS);
 
 contract SignedAccessConditionV1Test {
+    bytes4 internal constant CHECK_READ_SELECTOR =
+        bytes4(keccak256("checkReadCondition(address,bytes,bytes)"));
+
     PirateSignerRegistry internal registry;
     SignedAccessConditionV1 internal condition;
 
@@ -69,7 +72,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 address(0xDEAD),
                 abi.encode(proof.namespace),
                 abi.encode(proof, _sign(SIGNER_PK, proof))
@@ -89,7 +92,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 proof.caller,
                 abi.encode(keccak256("other-namespace")),
                 abi.encode(proof, _sign(SIGNER_PK, proof))
@@ -109,7 +112,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 proof.caller,
                 abi.encode(proof.namespace),
                 abi.encode(proof, _sign(SIGNER_PK, proof))
@@ -129,7 +132,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 proof.caller,
                 abi.encode(proof.namespace),
                 abi.encode(proof, _sign(SIGNER_PK, proof))
@@ -149,7 +152,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 proof.caller,
                 abi.encode(proof.namespace),
                 abi.encode(proof, _sign(OTHER_PK, proof))
@@ -172,7 +175,7 @@ contract SignedAccessConditionV1Test {
 
         (bool ok,) = address(condition).call(
             abi.encodeWithSelector(
-                SignedAccessConditionV1.checkReadCondition.selector,
+                CHECK_READ_SELECTOR,
                 proof.caller,
                 abi.encode(proof.namespace),
                 abi.encode(proof, _sign(SIGNER_PK, proof))

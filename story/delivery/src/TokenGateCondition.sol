@@ -14,6 +14,18 @@ contract TokenGateCondition {
         view
         returns (bool)
     {
+        return _checkReadCondition(caller, conditionData);
+    }
+
+    function checkReadCondition(uint32, bytes calldata, bytes calldata conditionData, address caller)
+        external
+        view
+        returns (bool)
+    {
+        return _checkReadCondition(caller, conditionData);
+    }
+
+    function _checkReadCondition(address caller, bytes calldata conditionData) internal view returns (bool) {
         (address entitlementToken, uint256 tokenId, uint256 minBalance) =
             abi.decode(conditionData, (address, uint256, uint256));
 

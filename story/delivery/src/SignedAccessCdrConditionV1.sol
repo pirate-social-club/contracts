@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-interface IPirateSignerRegistry {
+interface IPirateSignerRegistryV2 {
     function isActiveSigner(address signer) external view returns (bool);
 }
 
-library SimpleECDSA {
+library SimpleECDSAV2 {
     error InvalidSignatureLength();
     error InvalidSignatureS();
     error InvalidSignatureV();
@@ -33,8 +33,8 @@ library SimpleECDSA {
     }
 }
 
-contract SignedAccessConditionV1 {
-    using SimpleECDSA for bytes32;
+contract SignedAccessCdrConditionV1 {
+    using SimpleECDSAV2 for bytes32;
 
     error InvalidSignerRegistry();
     error CallerMismatch();
@@ -58,7 +58,7 @@ contract SignedAccessConditionV1 {
     bytes32 public constant SCOPE_ASSET_SHARE = keccak256("asset.share");
 
     bytes32 public immutable DOMAIN_SEPARATOR;
-    IPirateSignerRegistry public immutable signerRegistry;
+    IPirateSignerRegistryV2 public immutable signerRegistry;
 
     struct AccessProof {
         uint32 vaultUuid;
@@ -71,7 +71,7 @@ contract SignedAccessConditionV1 {
 
     constructor(address signerRegistry_) {
         if (signerRegistry_ == address(0)) revert InvalidSignerRegistry();
-        signerRegistry = IPirateSignerRegistry(signerRegistry_);
+        signerRegistry = IPirateSignerRegistryV2(signerRegistry_);
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256(
@@ -106,7 +106,11 @@ contract SignedAccessConditionV1 {
         view
         returns (bool)
     {
-        bytes32 namespace = abi.decode(conditionData, (bytes32));
+        (bytes32 namespace, address writer) = abi.decode(conditionData, (bytes32, address));
+        if (accessAuxData.length == 0) {
+            return caller == writer;
+        }
+
         (AccessProof memory proof, bytes memory signature) = abi.decode(accessAuxData, (AccessProof, bytes));
 
         if (proof.caller != caller) revert CallerMismatch();
@@ -136,8 +140,8 @@ contract SignedAccessConditionV1 {
     }
 
     function _checkWriteCondition(address caller, bytes calldata conditionData) internal pure returns (bool) {
-        address publisherOperator = abi.decode(conditionData, (address));
-        return caller == publisherOperator;
+        address writer = abi.decode(conditionData, (address));
+        return caller == writer;
     }
 
     function hashProof(AccessProof memory proof) external view returns (bytes32) {
