@@ -41,11 +41,16 @@ find_qrcode_bin() {
     return 0
   fi
 
-  local candidate="$WORKSPACE_ROOT/pirate-web/node_modules/.bin/qrcode"
-  if [[ -x "$candidate" ]]; then
-    printf '%s\n' "$candidate"
-    return 0
-  fi
+  local candidate=""
+  for candidate in \
+    "$WORKSPACE_ROOT/web/node_modules/.bin/qrcode" \
+    "$WORKSPACE_ROOT/pirate-web/node_modules/.bin/qrcode"
+  do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
 
   if command -v qrcode >/dev/null 2>&1; then
     command -v qrcode
