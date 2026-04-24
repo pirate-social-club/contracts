@@ -1,6 +1,6 @@
 # Story Contracts
 
-Story-side Solidity workspaces for Pirate v2.
+Story-side Solidity workspaces for Pirate.
 
 ## Active Workspaces
 
@@ -15,7 +15,7 @@ Story-side Solidity workspaces for Pirate v2.
 ## Commands
 
 ```bash
-cd pirate-contracts/story/delivery
+cd /home/t42/Documents/pirate-workspace/contracts/story/delivery
 forge build
 forge test
 

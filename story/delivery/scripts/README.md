@@ -229,7 +229,7 @@ RPC_URL=... rtk ./scripts/publish-signed.sh \
 
 The script prints a shell-style deployment manifest on success.
 It also writes the same manifest to `deployments/<DEPLOY_TAG>.env`.
-The checked-in repo source of truth for the active Story Aeneid dev addresses lives in [story-aeneid-delivery.json](/home/t42/Documents/pirate-v2/config/story-aeneid-delivery.json).
+The checked-in repo source of truth for the active Story Aeneid dev addresses lives in `core/config/story-aeneid-delivery.json`.
 
 ## Step JSON Fields
 

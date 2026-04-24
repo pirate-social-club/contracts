@@ -1,6 +1,6 @@
 # Pirate Contracts — Agent Notes
 
-This file is for agents working inside `pirate-contracts/`.
+This file is for agents working inside the `contracts` repo.
 
 ## Layout
 

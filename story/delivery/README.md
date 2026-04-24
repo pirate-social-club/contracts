@@ -1,6 +1,6 @@
 # Delivery
 
-Minimal Story-side locked-asset delivery contract workspace for Pirate v2.
+Minimal Story-side locked-asset delivery contract workspace for Pirate.
 
 ## Scope
 
@@ -13,12 +13,12 @@ Minimal Story-side locked-asset delivery contract workspace for Pirate v2.
 
 ## Current Dev Deployment
 
-The active Story Aeneid dev deployment is recorded in [story-aeneid-delivery.json](/home/t42/Documents/pirate-v2/config/story-aeneid-delivery.json).
+The active Story Aeneid dev deployment is recorded in `core/config/story-aeneid-delivery.json`.
 
 ## Commands
 
 ```bash
-cd pirate-contracts/story/delivery
+cd /home/t42/Documents/pirate-workspace/contracts/story/delivery
 rtk forge build
 rtk forge test
 rtk ./scripts/deploy.sh

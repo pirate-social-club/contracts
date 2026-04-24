@@ -1,6 +1,6 @@
 # Scrobble
 
-Minimal Story-side scrobble contract workspace for Pirate v2.
+Minimal Story-side scrobble contract workspace for Pirate.
 
 ## Scope
 
@@ -12,7 +12,7 @@ Minimal Story-side scrobble contract workspace for Pirate v2.
 ## Commands
 
 ```bash
-cd pirate-contracts/story/scrobble
+cd /home/t42/Documents/pirate-workspace/contracts/story/scrobble
 forge build
 forge test
 ```
