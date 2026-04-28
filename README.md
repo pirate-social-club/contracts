@@ -1,6 +1,6 @@
-# Pirate Social Club Contracts
+# Pirate Contracts
 
-Solidity workspaces for Pirate Social Club.
+Solidity workspaces for Pirate.
 
 This repository keeps the active contract code under a single root, with chain-first grouping underneath it.
 
@@ -23,6 +23,6 @@ If v2 grows into a larger shared Story workspace later, these can be merged inte
 
 ## Non-Goals
 
-This repository is the active Pirate Social Club contract surface.
+This repository is the active Pirate contract surface.
 
 Archived upstream references such as `majeur` and `multisig` live under `references/upstream/` and are not part of this active workspace layout.
