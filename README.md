@@ -8,18 +8,12 @@ This repository keeps the active contract code under a single root, with chain-f
 
 - `story/delivery/`
   - locked-asset purchase entitlement, settlement, and access-control contracts
-- `story/scrobble/`
-  - track registration and Story-side scrobble contracts
 
 ## Why Separate Workspaces
 
-Both active contract areas target Story, but they are still separate Foundry workspaces today:
-
-- different contract surfaces
-- different tests and deployment concerns
-- no shared `lib/` or root deploy tooling yet
-
-If v2 grows into a larger shared Story workspace later, these can be merged intentionally instead of staying as loose root folders.
+The active contract area targets Story through its own Foundry workspace today.
+If v2 grows into a larger shared Story workspace later, that can happen intentionally
+instead of accumulating loose root folders.
 
 ## Non-Goals
 

@@ -5,9 +5,8 @@ This file is for agents working inside the `contracts` repo.
 ## Layout
 
 - `story/delivery/` — locked-asset purchase entitlements, token-gated access, settlement, publish coordination
-- `story/scrobble/` — canonical track registration, direct and delegated scrobbles
 
-Both are separate Foundry workspaces. No shared `lib/` or root deploy tooling yet.
+The active Story contract surface is currently a single Foundry workspace.
 
 ## Validation
 
@@ -15,10 +14,6 @@ Both are separate Foundry workspaces. No shared `lib/` or root deploy tooling ye
 cd story/delivery
 rtk forge build
 rtk forge test
-
-cd story/scrobble
-forge build
-forge test
 ```
 
 ## Deployment
