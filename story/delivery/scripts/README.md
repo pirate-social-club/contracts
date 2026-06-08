@@ -59,6 +59,7 @@ SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
 OWNER_ADDRESS=0x...               # optional but strongly recommended
 DEPLOY_TAG=dev-aeneid
+GAS_PRICE=2000000000              # optional; recommended on Aeneid to avoid RPC overpricing
 LEGACY=1                          # optional; pass through to forge/cast txs for legacy chains
 ```
 

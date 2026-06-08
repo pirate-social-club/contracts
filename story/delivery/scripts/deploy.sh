@@ -54,6 +54,9 @@ TX_FLAGS=()
 if [[ "$LEGACY" == "1" ]]; then
   TX_FLAGS+=(--legacy)
 fi
+if [[ -n "${GAS_PRICE:-}" ]]; then
+  TX_FLAGS+=(--gas-price "$GAS_PRICE")
+fi
 
 write_manifest() {
   cat <<EOF >"$MANIFEST_PATH"
