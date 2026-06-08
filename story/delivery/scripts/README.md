@@ -270,6 +270,10 @@ Each step JSON in unsigned mode contains:
 - `https://rpc.ankr.com/story_aeneid_testnet` worked reliably for the 2026-04-09 dev deployment. The official Aeneid RPC broadcasted txs but returned responses that broke Foundry/alloy receipt parsing.
 - If `OWNER_ADDRESS` is unset, the deployer key keeps ownership of `PurchaseEntitlementToken`, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
 - If `OWNER_ADDRESS` equals the deployer address, ownership transfers are skipped as no-ops.
-- `STORY_CONTRACT_OWNER_PRIVATE_KEY` is only required in hot mode. Treat it as a local-only disposable deploy key, not part of Infisical, not part of Chipotle, and not appropriate for real-funds or real-authority production signing.
+- For disposable hot-mode deploys, `STORY_CONTRACT_OWNER_PRIVATE_KEY` should stay local-only.
+  For managed staging or production redeploys, the same key becomes durable runtime authority:
+  store it in the environment's approved secret manager, keep `OWNER_ADDRESS` and the checked-in
+  delivery config in sync with the key-derived address, and verify owner/grant preflights before
+  traffic depends on the deployment.
 - Unsigned mode uses `cast mktx --raw-unsigned` to produce unsigned transactions. Creation bytecode is assembled from compiled artifacts plus ABI-encoded constructor args, then emitted as a proper `CREATE` transaction.
 - `render-step-qr.sh` renders the `unsignedRawTx` field directly. It intentionally refuses oversized steps instead of generating a static QR that is unlikely to scan reliably.
