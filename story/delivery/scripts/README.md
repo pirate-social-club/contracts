@@ -7,6 +7,7 @@ These scripts deploy and configure the locked-asset delivery contract stack in d
 The deploy script handles this DAG:
 
 - `PurchaseEntitlementToken`
+- `PurchaseEntitlementClassConfigurer` depends on `PurchaseEntitlementToken`
 - `PirateSignerRegistry`
 - `TokenGateCondition`
 - `SignedAccessConditionV1` depends on `PirateSignerRegistry`
@@ -16,9 +17,19 @@ The deploy script handles this DAG:
 Then it grants:
 
 - settlement contract as entitlement minter
+- entitlement class configurer role on `PurchaseEntitlementClassConfigurer`
 - publish operator on publish coordinator
 - settlement operator on settlement contract
 - temporary-access proof signer in signer registry
+
+Final ownership is split for managed deployments:
+
+- `PurchaseEntitlementToken.owner()` becomes `PurchaseEntitlementClassConfigurer`
+- `PurchaseEntitlementClassConfigurer.owner()` becomes `OWNER_ADDRESS`
+- `PirateSignerRegistry.owner()`, `AssetPublishCoordinatorV1.owner()`, and `MarketplaceSettlementV1.owner()` become `OWNER_ADDRESS`
+
+This keeps the per-asset `configureEntitlementClass(...)` path delegated to a narrow runtime key
+without putting the full contract owner key in the API runtime.
 
 ## Modes
 
@@ -57,6 +68,7 @@ STORY_CONTRACT_OWNER_PRIVATE_KEY=...
 PUBLISH_OPERATOR=0x...
 SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
+ENTITLEMENT_CLASS_CONFIGURER=0x... # optional; defaults to PUBLISH_OPERATOR
 OWNER_ADDRESS=0x...               # optional but strongly recommended
 DEPLOY_TAG=dev-aeneid
 GAS_PRICE=2000000000              # optional; recommended on Aeneid to avoid RPC overpricing
@@ -72,6 +84,7 @@ DEPLOYER_ADDRESS=0x...            # your cold-wallet address
 PUBLISH_OPERATOR=0x...
 SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
+ENTITLEMENT_CLASS_CONFIGURER=0x... # optional; defaults to PUBLISH_OPERATOR
 OWNER_ADDRESS=0x...               # optional but strongly recommended
 DEPLOY_TAG=prod-aeneid
 LEGACY=1                          # optional
@@ -83,6 +96,7 @@ Optional resumability inputs:
 
 ```bash
 PURCHASE_ENTITLEMENT_TOKEN=0x...
+PURCHASE_ENTITLEMENT_CLASS_CONFIGURER=0x...
 PIRATE_SIGNER_REGISTRY=0x...
 TOKEN_GATE_CONDITION=0x...
 SIGNED_ACCESS_CONDITION_V1=0x...
@@ -107,6 +121,7 @@ From the `delivery` workspace:
 ```bash
 MODE=unsigned DEPLOYER_ADDRESS=0x... RPC_URL=... \
   PUBLISH_OPERATOR=0x... SETTLEMENT_OPERATOR=0x... ACCESS_PROOF_SIGNER=0x... \
+  ENTITLEMENT_CLASS_CONFIGURER=0x... \
   DEPLOY_TAG=prod-aeneid \
   rtk ./scripts/deploy.sh
 ```
@@ -263,17 +278,20 @@ Each step JSON in unsigned mode contains:
 - `TokenGateCondition` has no constructor dependencies and can deploy at any point.
 - The script chooses a deterministic order that keeps constructor dependencies obvious.
 - `PUBLISH_OPERATOR` should correspond to the Story operator family entry that includes `publishAssetVersion(...)` in `config/lit-families.json`.
+- `ENTITLEMENT_CLASS_CONFIGURER` should be the narrow runtime signer used by the API as
+  `STORY_ENTITLEMENT_CLASS_CONFIGURER_PRIVATE_KEY` / `STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS`.
 - The script is resumable. If a partial manifest already exists for `DEPLOY_TAG`, re-running will source it and continue unless the manifest is already marked complete.
 - You can also resume manually by exporting any already-deployed contract address env vars shown above.
 - If `forge create` broadcasts successfully but fails to print `Deployed to:`, the script falls back to deployer nonce advancement plus `cast compute-address` and verifies code onchain before continuing.
 - `LEGACY=1` passes `--legacy` to both `forge create` and `cast send`.
 - `https://rpc.ankr.com/story_aeneid_testnet` worked reliably for the 2026-04-09 dev deployment. The official Aeneid RPC broadcasted txs but returned responses that broke Foundry/alloy receipt parsing.
-- If `OWNER_ADDRESS` is unset, the deployer key keeps ownership of `PurchaseEntitlementToken`, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
+- If `OWNER_ADDRESS` is unset, `PurchaseEntitlementToken` is still transferred to
+  `PurchaseEntitlementClassConfigurer`, but the deployer key keeps ownership of the class
+  configurer, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
 - If `OWNER_ADDRESS` equals the deployer address, ownership transfers are skipped as no-ops.
 - For disposable hot-mode deploys, `STORY_CONTRACT_OWNER_PRIVATE_KEY` should stay local-only.
-  For managed staging or production redeploys, the same key becomes durable runtime authority:
-  store it in the environment's approved secret manager, keep `OWNER_ADDRESS` and the checked-in
-  delivery config in sync with the key-derived address, and verify owner/grant preflights before
-  traffic depends on the deployment.
+  For managed staging or production redeploys, do not put the full owner key in the API runtime
+  for steady-state traffic. Deploy the class configurer, set `OWNER_ADDRESS` to the durable owner
+  or multisig, and give the API only the narrow entitlement-class configurer key.
 - Unsigned mode uses `cast mktx --raw-unsigned` to produce unsigned transactions. Creation bytecode is assembled from compiled artifacts plus ABI-encoded constructor args, then emitted as a proper `CREATE` transaction.
 - `render-step-qr.sh` renders the `unsignedRawTx` field directly. It intentionally refuses oversized steps instead of generating a static QR that is unlikely to scan reliably.

@@ -24,6 +24,7 @@ require_env RPC_URL
 require_env PUBLISH_OPERATOR
 require_env SETTLEMENT_OPERATOR
 require_env ACCESS_PROOF_SIGNER
+ENTITLEMENT_CLASS_CONFIGURER="${ENTITLEMENT_CLASS_CONFIGURER:-$PUBLISH_OPERATOR}"
 
 if [[ "$MODE" != "hot" && "$MODE" != "unsigned" ]]; then
   echo "MODE must be 'hot' or 'unsigned', got: $MODE" >&2
@@ -66,6 +67,7 @@ DEPLOY_TAG=$DEPLOY_TAG
 RPC_URL=$RPC_URL
 DEPLOYER_ADDRESS=$DEPLOYER_ADDRESS
 PURCHASE_ENTITLEMENT_TOKEN=${PURCHASE_ENTITLEMENT_TOKEN:-}
+PURCHASE_ENTITLEMENT_CLASS_CONFIGURER=${PURCHASE_ENTITLEMENT_CLASS_CONFIGURER:-}
 PIRATE_SIGNER_REGISTRY=${PIRATE_SIGNER_REGISTRY:-}
 TOKEN_GATE_CONDITION=${TOKEN_GATE_CONDITION:-}
 SIGNED_ACCESS_CONDITION_V1=${SIGNED_ACCESS_CONDITION_V1:-}
@@ -74,6 +76,7 @@ MARKETPLACE_SETTLEMENT_V1=${MARKETPLACE_SETTLEMENT_V1:-}
 PUBLISH_OPERATOR=$PUBLISH_OPERATOR
 SETTLEMENT_OPERATOR=$SETTLEMENT_OPERATOR
 ACCESS_PROOF_SIGNER=$ACCESS_PROOF_SIGNER
+ENTITLEMENT_CLASS_CONFIGURER=$ENTITLEMENT_CLASS_CONFIGURER
 OWNER_ADDRESS=${OWNER_ADDRESS:-}
 LEGACY=$LEGACY
 EOF
@@ -587,18 +590,15 @@ ensure_bool_grant() {
 
 transfer_ownership_if_needed() {
   local target="$1"
+  local desired_owner="${2:-${OWNER_ADDRESS:-}}"
 
-  if [[ -z "${OWNER_ADDRESS:-}" ]]; then
-    return 0
-  fi
-
-  if [[ "$OWNER_ADDRESS" == "$DEPLOYER_ADDRESS" ]]; then
+  if [[ -z "$desired_owner" ]]; then
     return 0
   fi
 
   local current_owner
   current_owner="$(rtk cast call "$target" "owner()(address)" --rpc-url "$RPC_URL")"
-  if [[ "$current_owner" == "$OWNER_ADDRESS" ]]; then
+  if [[ "$current_owner" == "$desired_owner" ]]; then
     return 0
   fi
 
@@ -608,8 +608,8 @@ transfer_ownership_if_needed() {
   fi
 
   if [[ "$MODE" == "hot" ]]; then
-    send_tx "$target" "transferOwnership(address)" "$OWNER_ADDRESS"
-    wait_for_owner "$target" "$OWNER_ADDRESS"
+    send_tx "$target" "transferOwnership(address)" "$desired_owner"
+    wait_for_owner "$target" "$desired_owner"
   fi
 }
 
@@ -635,6 +635,36 @@ else
   emit_create_step "purchase-entitlement-token" \
     "src/PurchaseEntitlementToken.sol:PurchaseEntitlementToken" \
     "PURCHASE_ENTITLEMENT_TOKEN"
+fi
+
+echo "deploying PurchaseEntitlementClassConfigurer..." >&2
+if [[ "$MODE" == "hot" ]]; then
+  deploy_or_resume \
+    PURCHASE_ENTITLEMENT_CLASS_CONFIGURER \
+    src/PurchaseEntitlementClassConfigurer.sol:PurchaseEntitlementClassConfigurer \
+    --constructor-args "$PURCHASE_ENTITLEMENT_TOKEN"
+  ensure_bool_grant \
+    "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER" \
+    "isClassConfigurer(address)(bool)" \
+    "$ENTITLEMENT_CLASS_CONFIGURER" \
+    "setClassConfigurer(address,bool)" \
+    "$ENTITLEMENT_CLASS_CONFIGURER"
+  write_manifest
+else
+  emit_create_step "purchase-entitlement-class-configurer" \
+    "src/PurchaseEntitlementClassConfigurer.sol:PurchaseEntitlementClassConfigurer" \
+    "PURCHASE_ENTITLEMENT_CLASS_CONFIGURER" \
+    "constructor(address)" \
+    "$PURCHASE_ENTITLEMENT_TOKEN"
+  emit_call_step "purchase-entitlement-class-configurer-set-class-configurer" \
+    "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER" \
+    "setClassConfigurer(address,bool)" \
+    "bool_grant" \
+    "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER" \
+    "isClassConfigurer(address)(bool)" \
+    "$ENTITLEMENT_CLASS_CONFIGURER" \
+    "true" \
+    "$ENTITLEMENT_CLASS_CONFIGURER" true
 fi
 
 echo "deploying PirateSignerRegistry..." >&2
@@ -760,16 +790,27 @@ else
     "$MARKETPLACE_SETTLEMENT_V1" true
 fi
 
+echo "ensuring entitlement token controller ownership..." >&2
+if [[ "$MODE" == "hot" ]]; then
+  transfer_ownership_if_needed "$PURCHASE_ENTITLEMENT_TOKEN" "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER"
+else
+  emit_call_step "purchase-entitlement-token-transfer-ownership-to-class-configurer" \
+    "$PURCHASE_ENTITLEMENT_TOKEN" \
+    "transferOwnership(address)" \
+    "owner_transfer" \
+    "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER"
+fi
+
 if [[ -n "${OWNER_ADDRESS:-}" ]]; then
-  echo "ensuring final ownership..." >&2
+  echo "ensuring final owner-controlled contracts..." >&2
   if [[ "$MODE" == "hot" ]]; then
-    transfer_ownership_if_needed "$PURCHASE_ENTITLEMENT_TOKEN"
+    transfer_ownership_if_needed "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER"
     transfer_ownership_if_needed "$PIRATE_SIGNER_REGISTRY"
     transfer_ownership_if_needed "$ASSET_PUBLISH_COORDINATOR_V1"
     transfer_ownership_if_needed "$MARKETPLACE_SETTLEMENT_V1"
   else
-    emit_call_step "purchase-entitlement-token-transfer-ownership" \
-      "$PURCHASE_ENTITLEMENT_TOKEN" \
+    emit_call_step "purchase-entitlement-class-configurer-transfer-ownership" \
+      "$PURCHASE_ENTITLEMENT_CLASS_CONFIGURER" \
       "transferOwnership(address)" \
       "owner_transfer" \
       "$OWNER_ADDRESS"
@@ -790,7 +831,7 @@ if [[ -n "${OWNER_ADDRESS:-}" ]]; then
       "$OWNER_ADDRESS"
   fi
 else
-  echo "warning: OWNER_ADDRESS not set; deployer retains ownership of all ownable delivery contracts" >&2
+  echo "warning: OWNER_ADDRESS not set; deployer retains ownership of the class configurer and non-token ownable delivery contracts" >&2
 fi
 
 if [[ "$MODE" == "hot" ]]; then
