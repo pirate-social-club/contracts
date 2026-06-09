@@ -5,8 +5,6 @@ interface IPurchaseEntitlementTokenForClassConfigurer {
     function configureEntitlementClass(uint256 tokenId, bytes32 assetVersionId, uint32 cdrVaultUuid, bool active)
         external;
 
-    function setSettlementMinter(address minter, bool active) external;
-
     function transferOwnership(address newOwner) external;
 }
 
@@ -55,10 +53,6 @@ contract PurchaseEntitlementClassConfigurer {
         onlyClassConfigurer
     {
         entitlementToken.configureEntitlementClass(tokenId, assetVersionId, cdrVaultUuid, active);
-    }
-
-    function setSettlementMinter(address minter, bool active) external onlyOwner {
-        entitlementToken.setSettlementMinter(minter, active);
     }
 
     function transferEntitlementTokenOwnership(address newOwner) external onlyOwner {

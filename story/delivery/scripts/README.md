@@ -30,6 +30,9 @@ Final ownership is split for managed deployments:
 
 This keeps the per-asset `configureEntitlementClass(...)` path delegated to a narrow runtime key
 without putting the full contract owner key in the API runtime.
+The controller owner is still durable admin authority: it can transfer controller ownership and
+recover `PurchaseEntitlementToken` ownership. Settlement-minter rotation is intentionally not
+forwarded by the controller; recover token ownership first, then rotate the minter directly.
 
 ## Modes
 
@@ -68,7 +71,7 @@ STORY_CONTRACT_OWNER_PRIVATE_KEY=...
 PUBLISH_OPERATOR=0x...
 SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
-ENTITLEMENT_CLASS_CONFIGURER=0x... # optional; defaults to PUBLISH_OPERATOR
+ENTITLEMENT_CLASS_CONFIGURER=0x... # required; API runtime class-configurer signer address
 OWNER_ADDRESS=0x...               # optional but strongly recommended
 DEPLOY_TAG=dev-aeneid
 GAS_PRICE=2000000000              # optional; recommended on Aeneid to avoid RPC overpricing
@@ -84,7 +87,7 @@ DEPLOYER_ADDRESS=0x...            # your cold-wallet address
 PUBLISH_OPERATOR=0x...
 SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
-ENTITLEMENT_CLASS_CONFIGURER=0x... # optional; defaults to PUBLISH_OPERATOR
+ENTITLEMENT_CLASS_CONFIGURER=0x... # required; API runtime class-configurer signer address
 OWNER_ADDRESS=0x...               # optional but strongly recommended
 DEPLOY_TAG=prod-aeneid
 LEGACY=1                          # optional
@@ -280,6 +283,7 @@ Each step JSON in unsigned mode contains:
 - `PUBLISH_OPERATOR` should correspond to the Story operator family entry that includes `publishAssetVersion(...)` in `config/lit-families.json`.
 - `ENTITLEMENT_CLASS_CONFIGURER` should be the narrow runtime signer used by the API as
   `STORY_ENTITLEMENT_CLASS_CONFIGURER_PRIVATE_KEY` / `STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS`.
+  The deploy script requires this explicitly to avoid accidentally granting the publish operator or deployer.
 - The script is resumable. If a partial manifest already exists for `DEPLOY_TAG`, re-running will source it and continue unless the manifest is already marked complete.
 - You can also resume manually by exporting any already-deployed contract address env vars shown above.
 - If `forge create` broadcasts successfully but fails to print `Deployed to:`, the script falls back to deployer nonce advancement plus `cast compute-address` and verifies code onchain before continuing.
@@ -288,7 +292,9 @@ Each step JSON in unsigned mode contains:
 - If `OWNER_ADDRESS` is unset, `PurchaseEntitlementToken` is still transferred to
   `PurchaseEntitlementClassConfigurer`, but the deployer key keeps ownership of the class
   configurer, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
-- If `OWNER_ADDRESS` equals the deployer address, ownership transfers are skipped as no-ops.
+- If `OWNER_ADDRESS` equals the deployer address, ownership transfers are no-ops and the deployer
+  remains the durable admin. Managed staging/production deployments should use a cold wallet or
+  multisig owner instead.
 - For disposable hot-mode deploys, `STORY_CONTRACT_OWNER_PRIVATE_KEY` should stay local-only.
   For managed staging or production redeploys, do not put the full owner key in the API runtime
   for steady-state traffic. Deploy the class configurer, set `OWNER_ADDRESS` to the durable owner

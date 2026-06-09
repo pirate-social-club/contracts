@@ -19,14 +19,14 @@ contract ClassConfigurerActor {
         configurer.configureEntitlementClass(tokenId, assetVersionId, vaultUuid, active);
     }
 
-    function setSettlementMinter(PurchaseEntitlementClassConfigurer configurer, address minter, bool active) external {
-        configurer.setSettlementMinter(minter, active);
-    }
-
     function transferEntitlementTokenOwnership(PurchaseEntitlementClassConfigurer configurer, address newOwner)
         external
     {
         configurer.transferEntitlementTokenOwnership(newOwner);
+    }
+
+    function transferOwnership(PurchaseEntitlementClassConfigurer configurer, address newOwner) external {
+        configurer.transferOwnership(newOwner);
     }
 }
 
@@ -34,7 +34,6 @@ contract PurchaseEntitlementClassConfigurerTest {
     PurchaseEntitlementToken internal token;
     PurchaseEntitlementClassConfigurer internal configurer;
     ClassConfigurerActor internal runtimeConfigurer;
-    ClassConfigurerActor internal settlementMinter;
     ClassConfigurerActor internal stranger;
     ClassConfigurerActor internal newTokenOwner;
 
@@ -46,7 +45,6 @@ contract PurchaseEntitlementClassConfigurerTest {
         token = new PurchaseEntitlementToken();
         configurer = new PurchaseEntitlementClassConfigurer(address(token));
         runtimeConfigurer = new ClassConfigurerActor();
-        settlementMinter = new ClassConfigurerActor();
         stranger = new ClassConfigurerActor();
         newTokenOwner = new ClassConfigurerActor();
 
@@ -80,26 +78,6 @@ contract PurchaseEntitlementClassConfigurerTest {
         assert(!ok);
     }
 
-    function testOwnerCanRotateSettlementMinterThroughConfigurer() public {
-        configurer.setSettlementMinter(address(settlementMinter), true);
-
-        assert(token.isSettlementMinter(address(settlementMinter)));
-    }
-
-    function testStrangerCannotRotateSettlementMinter() public {
-        (bool ok,) = address(stranger).call(
-            abi.encodeWithSelector(
-                ClassConfigurerActor.setSettlementMinter.selector,
-                configurer,
-                address(settlementMinter),
-                true
-            )
-        );
-
-        assert(!ok);
-        assert(!token.isSettlementMinter(address(settlementMinter)));
-    }
-
     function testOwnerCanRecoverEntitlementTokenOwnership() public {
         configurer.transferEntitlementTokenOwnership(address(newTokenOwner));
 
@@ -117,5 +95,42 @@ contract PurchaseEntitlementClassConfigurerTest {
 
         assert(!ok);
         assert(token.owner() == address(configurer));
+    }
+
+    function testManagedRuntimeFlow() public {
+        PurchaseEntitlementToken managedToken = new PurchaseEntitlementToken();
+        PurchaseEntitlementClassConfigurer managedConfigurer =
+            new PurchaseEntitlementClassConfigurer(address(managedToken));
+        ClassConfigurerActor apiSigner = new ClassConfigurerActor();
+        ClassConfigurerActor coldOwner = new ClassConfigurerActor();
+        ClassConfigurerActor unknown = new ClassConfigurerActor();
+
+        managedConfigurer.setClassConfigurer(address(apiSigner), true);
+        managedToken.transferOwnership(address(managedConfigurer));
+        managedConfigurer.transferOwnership(address(coldOwner));
+
+        assert(managedToken.owner() == address(managedConfigurer));
+        assert(managedConfigurer.owner() == address(coldOwner));
+        assert(managedConfigurer.isClassConfigurer(address(apiSigner)));
+
+        apiSigner.configureEntitlementClass(managedConfigurer, TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
+        (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) =
+            managedToken.entitlementClasses(TOKEN_ID);
+        assert(assetVersionId == ASSET_VERSION_ID);
+        assert(vaultUuid == VAULT_UUID);
+        assert(active);
+        assert(exists);
+
+        (bool ok,) = address(unknown).call(
+            abi.encodeWithSelector(
+                ClassConfigurerActor.configureEntitlementClass.selector,
+                managedConfigurer,
+                uint256(keccak256("asset-version-2")),
+                keccak256("asset-version-2"),
+                uint32(8),
+                true
+            )
+        );
+        assert(!ok);
     }
 }

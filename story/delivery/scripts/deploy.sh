@@ -24,7 +24,7 @@ require_env RPC_URL
 require_env PUBLISH_OPERATOR
 require_env SETTLEMENT_OPERATOR
 require_env ACCESS_PROOF_SIGNER
-ENTITLEMENT_CLASS_CONFIGURER="${ENTITLEMENT_CLASS_CONFIGURER:-$PUBLISH_OPERATOR}"
+require_env ENTITLEMENT_CLASS_CONFIGURER
 
 if [[ "$MODE" != "hot" && "$MODE" != "unsigned" ]]; then
   echo "MODE must be 'hot' or 'unsigned', got: $MODE" >&2
@@ -36,6 +36,10 @@ if [[ "$MODE" == "hot" ]]; then
   DEPLOYER_ADDRESS="$(rtk cast wallet address --private-key "$STORY_CONTRACT_OWNER_PRIVATE_KEY")"
 else
   require_env DEPLOYER_ADDRESS
+fi
+
+if [[ -n "${OWNER_ADDRESS:-}" && "${OWNER_ADDRESS,,}" == "${DEPLOYER_ADDRESS,,}" ]]; then
+  echo "warning: OWNER_ADDRESS equals DEPLOYER_ADDRESS; managed deployments should use a cold wallet or multisig owner" >&2
 fi
 
 mkdir -p "$DEPLOYMENTS_DIR"
