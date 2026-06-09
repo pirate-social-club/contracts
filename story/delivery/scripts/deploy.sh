@@ -20,11 +20,32 @@ require_env() {
   fi
 }
 
+require_evm_address() {
+  local name="$1"
+  local value="${!name:-}"
+  if [[ ! "$value" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
+    echo "invalid EVM address env $name: $value" >&2
+    exit 1
+  fi
+}
+
 require_env RPC_URL
 require_env PUBLISH_OPERATOR
 require_env SETTLEMENT_OPERATOR
 require_env ACCESS_PROOF_SIGNER
 require_env ENTITLEMENT_CLASS_CONFIGURER
+require_evm_address PUBLISH_OPERATOR
+require_evm_address SETTLEMENT_OPERATOR
+require_evm_address ACCESS_PROOF_SIGNER
+require_evm_address ENTITLEMENT_CLASS_CONFIGURER
+
+if [[ -n "${STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS:-}" ]]; then
+  require_evm_address STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS
+  if [[ "${STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS,,}" != "${ENTITLEMENT_CLASS_CONFIGURER,,}" ]]; then
+    echo "ENTITLEMENT_CLASS_CONFIGURER must match STORY_ENTITLEMENT_CLASS_CONFIGURER_ADDRESS when both are set" >&2
+    exit 1
+  fi
+fi
 
 if [[ "$MODE" != "hot" && "$MODE" != "unsigned" ]]; then
   echo "MODE must be 'hot' or 'unsigned', got: $MODE" >&2
@@ -36,8 +57,16 @@ if [[ "$MODE" == "hot" ]]; then
   DEPLOYER_ADDRESS="$(rtk cast wallet address --private-key "$STORY_CONTRACT_OWNER_PRIVATE_KEY")"
 else
   require_env DEPLOYER_ADDRESS
+  require_evm_address DEPLOYER_ADDRESS
 fi
 
+if [[ -z "${OWNER_ADDRESS:-}" && "${ALLOW_DEPLOYER_OWNER:-0}" != "1" ]]; then
+  echo "missing required env: OWNER_ADDRESS (set ALLOW_DEPLOYER_OWNER=1 only for disposable deployments)" >&2
+  exit 1
+fi
+if [[ -n "${OWNER_ADDRESS:-}" ]]; then
+  require_evm_address OWNER_ADDRESS
+fi
 if [[ -n "${OWNER_ADDRESS:-}" && "${OWNER_ADDRESS,,}" == "${DEPLOYER_ADDRESS,,}" ]]; then
   echo "warning: OWNER_ADDRESS equals DEPLOYER_ADDRESS; managed deployments should use a cold wallet or multisig owner" >&2
 fi
@@ -82,6 +111,7 @@ SETTLEMENT_OPERATOR=$SETTLEMENT_OPERATOR
 ACCESS_PROOF_SIGNER=$ACCESS_PROOF_SIGNER
 ENTITLEMENT_CLASS_CONFIGURER=$ENTITLEMENT_CLASS_CONFIGURER
 OWNER_ADDRESS=${OWNER_ADDRESS:-}
+ALLOW_DEPLOYER_OWNER=${ALLOW_DEPLOYER_OWNER:-0}
 LEGACY=$LEGACY
 EOF
 }
