@@ -73,7 +73,7 @@ SETTLEMENT_OPERATOR=0x...
 ACCESS_PROOF_SIGNER=0x...
 ENTITLEMENT_CLASS_CONFIGURER=0x... # required; API runtime class-configurer signer address
 OWNER_ADDRESS=0x...               # optional but strongly recommended
-ALLOW_DEPLOYER_OWNER=1            # optional; only for disposable deployments without OWNER_ADDRESS
+ALLOW_DEPLOYER_OWNER=YES_I_UNDERSTAND_DEPLOYER_RETAINS_ADMIN # optional; disposable only
 DEPLOY_TAG=dev-aeneid
 GAS_PRICE=2000000000              # optional; recommended on Aeneid to avoid RPC overpricing
 LEGACY=1                          # optional; pass through to forge/cast txs for legacy chains
@@ -292,10 +292,11 @@ Each step JSON in unsigned mode contains:
 - If `forge create` broadcasts successfully but fails to print `Deployed to:`, the script falls back to deployer nonce advancement plus `cast compute-address` and verifies code onchain before continuing.
 - `LEGACY=1` passes `--legacy` to both `forge create` and `cast send`.
 - `https://rpc.ankr.com/story_aeneid_testnet` worked reliably for the 2026-04-09 dev deployment. The official Aeneid RPC broadcasted txs but returned responses that broke Foundry/alloy receipt parsing.
-- `OWNER_ADDRESS` is required unless `ALLOW_DEPLOYER_OWNER=1` is set. Only use that override for
-  disposable deployments. Without `OWNER_ADDRESS`, `PurchaseEntitlementToken` is still transferred
-  to `PurchaseEntitlementClassConfigurer`, but the deployer key keeps ownership of the class
-  configurer, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
+- `OWNER_ADDRESS` is required unless
+  `ALLOW_DEPLOYER_OWNER=YES_I_UNDERSTAND_DEPLOYER_RETAINS_ADMIN` is set. Only use that override
+  for disposable deployments. Without `OWNER_ADDRESS`, `PurchaseEntitlementToken` is still
+  transferred to `PurchaseEntitlementClassConfigurer`, but the deployer key keeps ownership of the
+  class configurer, `PirateSignerRegistry`, `AssetPublishCoordinatorV1`, and `MarketplaceSettlementV1`.
 - If `OWNER_ADDRESS` equals the deployer address, ownership transfers are no-ops and the deployer
   remains the durable admin. Managed staging/production deployments should use a cold wallet or
   multisig owner instead.

@@ -60,8 +60,8 @@ else
   require_evm_address DEPLOYER_ADDRESS
 fi
 
-if [[ -z "${OWNER_ADDRESS:-}" && "${ALLOW_DEPLOYER_OWNER:-0}" != "1" ]]; then
-  echo "missing required env: OWNER_ADDRESS (set ALLOW_DEPLOYER_OWNER=1 only for disposable deployments)" >&2
+if [[ -z "${OWNER_ADDRESS:-}" && "${ALLOW_DEPLOYER_OWNER:-}" != "YES_I_UNDERSTAND_DEPLOYER_RETAINS_ADMIN" ]]; then
+  echo "missing required env: OWNER_ADDRESS (set ALLOW_DEPLOYER_OWNER=YES_I_UNDERSTAND_DEPLOYER_RETAINS_ADMIN only for disposable deployments)" >&2
   exit 1
 fi
 if [[ -n "${OWNER_ADDRESS:-}" ]]; then
