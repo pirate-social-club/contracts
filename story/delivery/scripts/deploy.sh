@@ -797,6 +797,12 @@ if [[ "$MODE" == "hot" ]]; then
     "$MARKETPLACE_SETTLEMENT_V1" \
     "setSettlementMinter(address,bool)" \
     "$MARKETPLACE_SETTLEMENT_V1"
+  ensure_bool_grant \
+    "$PURCHASE_ENTITLEMENT_TOKEN" \
+    "isSettlementMinter(address)(bool)" \
+    "$SETTLEMENT_OPERATOR" \
+    "setSettlementMinter(address,bool)" \
+    "$SETTLEMENT_OPERATOR"
   write_manifest
 else
   emit_create_step "marketplace-settlement-v1" \
@@ -813,7 +819,7 @@ else
     "$SETTLEMENT_OPERATOR" \
     "true" \
     "$SETTLEMENT_OPERATOR" true
-  emit_call_step "purchase-entitlement-token-set-settlement-minter" \
+  emit_call_step "purchase-entitlement-token-set-marketplace-settlement-minter" \
     "$PURCHASE_ENTITLEMENT_TOKEN" \
     "setSettlementMinter(address,bool)" \
     "bool_grant" \
@@ -822,6 +828,15 @@ else
     "$MARKETPLACE_SETTLEMENT_V1" \
     "true" \
     "$MARKETPLACE_SETTLEMENT_V1" true
+  emit_call_step "purchase-entitlement-token-set-direct-settlement-minter" \
+    "$PURCHASE_ENTITLEMENT_TOKEN" \
+    "setSettlementMinter(address,bool)" \
+    "bool_grant" \
+    "$PURCHASE_ENTITLEMENT_TOKEN" \
+    "isSettlementMinter(address)(bool)" \
+    "$SETTLEMENT_OPERATOR" \
+    "true" \
+    "$SETTLEMENT_OPERATOR" true
 fi
 
 echo "ensuring entitlement token controller ownership..." >&2

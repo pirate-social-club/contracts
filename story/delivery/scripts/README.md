@@ -16,7 +16,8 @@ The deploy script handles this DAG:
 
 Then it grants:
 
-- settlement contract as entitlement minter
+- settlement contract as entitlement minter for contract-mediated settlement
+- settlement operator as entitlement minter for the API direct settlement path
 - entitlement class configurer role on `PurchaseEntitlementClassConfigurer`
 - publish operator on publish coordinator
 - settlement operator on settlement contract
