@@ -39,15 +39,19 @@ does not accept native currency.
 
 ## API and reconciliation contract
 
-The API must derive `operationId` byte-for-byte from its existing canonical payout or refund
-effect ID. The `RewardPaid` and `RewardRefunded` events index that value so reconciliation is a
-pure join to the existing effect row.
+Existing API payout/refund effect IDs are variable-length strings (for example
+`rpe_<32 hex>`), while the vault ABI accepts `bytes32`. The API must therefore derive
+`operationId = keccak256(UTF8(exactEffectId))` without case, Unicode, prefix, or whitespace
+normalization, while retaining the exact source effect ID as the database join key. The Worker,
+Lit Action, and reconciliation path must share fixed cross-language test vectors. The
+`RewardPaid` and `RewardRefunded` events index that digest so reconciliation remains a
+deterministic pure join to the existing effect row.
 
 The Lit action and Worker-side verifier must bind and compare:
 
 - method (`pay` or `refund`);
 - vault address;
-- operation/effect ID;
+- operation ID digest and exact source effect ID;
 - recipient;
 - amount;
 - deadline;
