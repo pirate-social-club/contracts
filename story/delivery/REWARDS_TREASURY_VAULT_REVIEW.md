@@ -58,6 +58,12 @@ The Lit action and Worker-side verifier must bind and compare:
 - policy version;
 - signer, chain ID, nonce, transaction type, zero native value, and gas fields.
 
+The action deliberately makes no RPC or other network calls. It constructs and signs the exact
+vault transaction from coordinator-supplied nonce and gas fields after enforcing source-pinned
+chain, vault, signer, policy-version, deadline, and gas ceilings. This removes an external RPC
+trust anchor from the TEE policy entirely; chain observation, nonce allocation, broadcast, and
+finality remain in the Worker coordinator and its independently verified transaction path.
+
 Funding receipt verification does not change: ERC-20 `Transfer` logs work for contract
 recipients.
 
