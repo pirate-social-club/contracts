@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {RewardsTreasuryVault} from "../src/RewardsTreasuryVault.sol";
 
 interface Vm {
+    function expectRevert(bytes4) external;
     function warp(uint256) external;
 }
 
@@ -210,14 +211,8 @@ contract RewardsTreasuryVaultTest {
     }
 
     function testUsdcCannotBeRecoveredThroughForeignTokenPath() public {
-        (bool ok,) = address(vault)
-            .call(
-                abi.encodeCall(
-                    RewardsTreasuryVault.recoverForeignToken,
-                    (address(usdc), address(recipient), 10e6)
-                )
-            );
-        assert(!ok);
+        vm.expectRevert(RewardsTreasuryVault.CannotRecoverUsdcAsForeignToken.selector);
+        vault.recoverForeignToken(address(usdc), address(recipient), 10e6);
     }
 
     function testTokenTransferFailureRollsBackOperationAndCapUsage() public {

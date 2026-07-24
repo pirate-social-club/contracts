@@ -68,8 +68,29 @@ Payout and refund limits are separately configurable:
 - maximum amount per transfer;
 - maximum aggregate amount per epoch.
 
+`maxRefund` is not the campaign maximum. Refunds are atomic-exact: a wrong-amount deposit must be
+returned in full, including accidental overpayments. Production `maxRefund` must therefore sit
+comfortably above any plausible single incoming deposit. An oversize deposit that exceeds it
+cannot use the automated path.
+
 The vault starts with both paths paused. Deployment is not armed until the Safe explicitly
 unpauses the intended path.
+
+## Oversize-deposit recovery
+
+If an atomic-exact refund exceeds `maxRefund`:
+
+1. freeze new campaign funding and identify the canonical refund effect/operation ID;
+2. verify the original transfer, sender, vault recipient, token, chain, and exact amount;
+3. prefer a Safe policy transaction that raises `maxRefund` and `refundEpochCap` under a new
+   policy version, then let the normal operation-ID-bound refund path execute;
+4. if policy expansion is inappropriate, pause both paths, use the Safe emergency withdrawal,
+   send the exact manual refund, and record its transaction against the existing refund effect;
+5. restore the prior policy under another strictly higher version, recheck solvency/cap state,
+   then unpause deliberately.
+
+The manual path needs a two-person decoded-transaction review and must never create a second
+operation ID. Reconciliation must mark the existing effect complete only after finality.
 
 ## Focused test matrix
 
@@ -102,6 +123,17 @@ unpauses the intended path.
 7. Is low-level ERC-20 transfer compatibility appropriate for canonical Base USDC, and should
    malformed nonempty return data have a dedicated error?
 8. Should ownership cancellation be explicit, or is overwriting `pendingOwner` sufficient?
+
+## Owner decisions required before deployment
+
+1. `epochDuration`. It is immutable, so changing epoch granularity requires a new vault and
+   funding address. One day is the proposed value for daily-accrual rewards, but the owner must
+   accept fixed UTC-aligned epochs and their boundary behavior.
+2. `maxPayout` and `payoutEpochCap`.
+3. `maxRefund` and `refundEpochCap`, with `maxRefund` intentionally above plausible accidental
+   deposits rather than merely above the campaign budget ceiling.
+4. Safe signers, threshold, modules/guards, and emergency ceremony.
+5. Initial Lit operator and policy version.
 
 ## Predeployment evidence
 

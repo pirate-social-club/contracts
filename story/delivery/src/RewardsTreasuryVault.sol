@@ -21,6 +21,7 @@ contract RewardsTreasuryVault {
     error PayoutsPaused();
     error RefundsPaused();
     error VaultMustBeFullyPaused();
+    error CannotRecoverUsdcAsForeignToken();
     error OwnershipTransferNotPending();
     error TokenTransferFailed();
     error Reentrancy();
@@ -219,7 +220,7 @@ contract RewardsTreasuryVault {
         nonReentrant
     {
         if (token == address(0) || recipient == address(0)) revert ZeroAddress();
-        if (token == address(usdc)) revert InvalidPolicy();
+        if (token == address(usdc)) revert CannotRecoverUsdcAsForeignToken();
         if (amount == 0) revert ZeroAmount();
         _safeTransfer(IERC20Minimal(token), recipient, amount);
         emit ForeignTokenRecovered(token, recipient, amount);
