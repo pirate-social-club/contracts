@@ -44,8 +44,44 @@ Existing API payout/refund effect IDs are variable-length strings (for example
 `operationId = keccak256(UTF8(exactEffectId))` without case, Unicode, prefix, or whitespace
 normalization, while retaining the exact source effect ID as the database join key. The Worker,
 Lit Action, and reconciliation path must share fixed cross-language test vectors. The
-`RewardPaid` and `RewardRefunded` events index that digest so reconciliation remains a
-deterministic pure join to the existing effect row.
+`RewardPaid`, `RewardRefunded` and `OperationCapacityDeferred` events index that digest so
+reconciliation remains a deterministic pure join to the existing effect row.
+
+### Epoch capacity is a deferral, not a failure
+
+An operation that passes every authorization and permanent-failure check but does not fit in the
+epoch's remaining capacity **succeeds as an explicit no-op** rather than reverting. It emits
+`OperationCapacityDeferred(operationId, kind, epoch)`, moves no funds, leaves
+`usedOperations[operationId] == false`, and leaves epoch spending unchanged, so the identical
+operation ID succeeds unchanged once the epoch rolls.
+
+This is deliberate and load-bearing. Distinguishing "capacity exhausted" from "permanently
+failed" by inspecting a reverted transaction requires `debug_traceTransaction`, which is a
+paid, vendor-gated capability. Making settlement correctness depend on it would mean a trace
+outage silently reclassifies every capacity deferral as a reconciliation case — under exactly
+the load where capacity deferrals occur. Emitting an event moves the classification onto
+standard log reads available from any RPC.
+
+Misclassifying a capacity deferral as a permanent failure is a **double-pay hazard**: a
+replacement cashout mints a fresh effect ID and therefore a fresh operation ID, which the
+vault's replay protection does not block.
+
+Reconciliation therefore recognises exactly three outcomes:
+
+| Receipt | Disposition |
+|---|---|
+| `RewardPaid` / `RewardRefunded` | confirmed |
+| `OperationCapacityDeferred` | non-terminal capacity deferral; retry at the next epoch boundary preserving effect ID and operation ID |
+| Reverted, or successful with no matching event | `reconciliation_required` |
+
+Capacity is evaluated **after** every reverting condition, so a paused, stale-policy, replayed,
+over-limit, expired or malformed operation still reverts and stays visible even when the epoch
+is also exhausted. Only capacity defers.
+
+Operational consequence: a deferred no-op still consumes gas. The coordinator must schedule
+retries against the next on-chain epoch boundary rather than a generic timer, and signer-ETH
+monitoring must account for deferred no-op gas — a compromised usage key can spam valid no-op
+transactions even though it cannot move vault funds.
 
 The Lit action and Worker-side verifier must bind and compare:
 
@@ -104,13 +140,26 @@ operation ID. Reconciliation must mark the existing effect complete only after f
 
 ## Focused test matrix
 
+70 Foundry tests pass, including 12 vault-specific adversarial tests and 12 covering capacity
+deferral and its event payload. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
+change and must not be treated as the reviewed candidate.
+
 | Area | Covered |
 |---|---|
 | Starts fail-closed | Both paths begin paused |
 | Authorization | Stranger rejected; old signer rejected after rotation |
 | Replay | Same ID rejected on the same path and across payout/refund |
 | Transfer cap | Over-limit transfer rejected |
-| Aggregate cap | Third payout rejected after epoch capacity is consumed |
+| Aggregate cap | Third payout deferred as a no-op after epoch capacity is consumed; no funds move |
+| Capacity deferral | Operation ID stays unconsumed and epoch spending unchanged |
+| Deferral retry | The identical operation ID succeeds unchanged in the next epoch |
+| Deferral precedence | Stale policy, expired deadline, replay, over-limit, zero-value and paused operations still revert while capacity is exhausted |
+| Refund deferral | Refund capacity defers independently and leaves payout capacity intact |
+| Deferral event payload | `expectEmit` asserts emitter, operation ID, operation kind and epoch for both payout and refund |
+| Deferral log shape | Exactly one log, emitted by the vault, topic0 = `OperationCapacityDeferred(bytes32,uint8,uint256)`, and no settlement event alongside it |
+| Settlement log shape | A settled payout emits `RewardPaid` and never the deferral event |
+| Repeated deferral | Retrying in the same epoch emits consistently and never consumes the id, moves funds, or charges capacity |
+| ABI stability | `pay`/`refund` selectors unchanged (`0x82cb3a1e`, `0xfc1af099`) so the pinned action CID stays valid |
 | Separate reserves | Refund capacity remains independent from payout capacity |
 | Epoch behavior | Capacity becomes available in the next fixed epoch |
 | Deadline | Expired operation rejected |

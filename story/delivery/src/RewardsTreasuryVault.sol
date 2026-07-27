@@ -17,7 +17,6 @@ contract RewardsTreasuryVault {
     error DeadlineExpired();
     error OperationAlreadyUsed();
     error TransferLimitExceeded();
-    error EpochLimitExceeded();
     error PayoutsPaused();
     error RefundsPaused();
     error VaultMustBeFullyPaused();
@@ -51,6 +50,24 @@ contract RewardsTreasuryVault {
         uint64 indexed policyVersion,
         uint256 epoch
     );
+    /// @notice Distinguishes the two metered operations in deferral events.
+    enum OperationKind {
+        Payout,
+        Refund
+    }
+
+    /// @notice Emitted when an otherwise-valid operation could not fit in the
+    /// epoch's remaining capacity. No funds move, the operation id is NOT
+    /// consumed, and epoch spending is unchanged, so the identical operation
+    /// succeeds once the epoch rolls. This is a successful transaction, not a
+    /// revert: settlement classification reads logs rather than depending on a
+    /// debug-trace endpoint.
+    event OperationCapacityDeferred(
+        bytes32 indexed operationId,
+        OperationKind indexed kind,
+        uint256 indexed epoch
+    );
+
     event EmergencyWithdrawal(address indexed recipient, uint256 amount);
     event ForeignTokenRecovered(address indexed token, address indexed recipient, uint256 amount);
 
@@ -128,7 +145,7 @@ contract RewardsTreasuryVault {
         uint64 expectedPolicyVersion
     ) external onlyOperator nonReentrant {
         if (payoutsPaused) revert PayoutsPaused();
-        uint256 epoch = _authorizeOperation(
+        (uint256 epoch, bool hasCapacity) = _authorizeOperation(
             operationId,
             recipient,
             amount,
@@ -138,6 +155,10 @@ contract RewardsTreasuryVault {
             payoutEpochCap,
             payoutSpentByEpoch[currentEpoch()]
         );
+        if (!hasCapacity) {
+            emit OperationCapacityDeferred(operationId, OperationKind.Payout, epoch);
+            return;
+        }
         payoutSpentByEpoch[epoch] += amount;
         _safeTransfer(usdc, recipient, amount);
         emit RewardPaid(operationId, recipient, amount, policyVersion, epoch);
@@ -151,7 +172,7 @@ contract RewardsTreasuryVault {
         uint64 expectedPolicyVersion
     ) external onlyOperator nonReentrant {
         if (refundsPaused) revert RefundsPaused();
-        uint256 epoch = _authorizeOperation(
+        (uint256 epoch, bool hasCapacity) = _authorizeOperation(
             operationId,
             recipient,
             amount,
@@ -161,6 +182,10 @@ contract RewardsTreasuryVault {
             refundEpochCap,
             refundSpentByEpoch[currentEpoch()]
         );
+        if (!hasCapacity) {
+            emit OperationCapacityDeferred(operationId, OperationKind.Refund, epoch);
+            return;
+        }
         refundSpentByEpoch[epoch] += amount;
         _safeTransfer(usdc, recipient, amount);
         emit RewardRefunded(operationId, recipient, amount, policyVersion, epoch);
@@ -235,7 +260,11 @@ contract RewardsTreasuryVault {
         uint256 transferLimit,
         uint256 epochCap,
         uint256 alreadySpent
-    ) private returns (uint256 epoch) {
+    ) private returns (uint256 epoch, bool hasCapacity) {
+        // Every authorization and permanent-failure check runs BEFORE capacity
+        // is evaluated. A paused, stale-policy, replayed, over-limit or expired
+        // operation must revert and stay visible even when the epoch is also
+        // exhausted — otherwise those conditions would be silently deferred.
         if (operationId == bytes32(0) || recipient == address(0)) {
             revert ZeroAddress();
         }
@@ -244,11 +273,15 @@ contract RewardsTreasuryVault {
         if (expectedPolicyVersion != policyVersion) revert StalePolicy();
         if (usedOperations[operationId]) revert OperationAlreadyUsed();
         if (amount > transferLimit) revert TransferLimitExceeded();
+
+        epoch = currentEpoch();
         if (alreadySpent > epochCap || amount > epochCap - alreadySpent) {
-            revert EpochLimitExceeded();
+            // Deferred, not failed: leave usedOperations and epoch spending
+            // untouched so the identical operation id retries next epoch.
+            return (epoch, false);
         }
         usedOperations[operationId] = true;
-        return currentEpoch();
+        return (epoch, true);
     }
 
     function _setPolicy(
