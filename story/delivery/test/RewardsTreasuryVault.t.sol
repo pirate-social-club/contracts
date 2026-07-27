@@ -134,7 +134,10 @@ contract RewardsTreasuryVaultTest {
         operator.pay(
             vault, keccak256("payout-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
         );
-        assert(!_callPay(operator, keccak256("payout-3"), 100e6, _deadline(), POLICY_VERSION));
+        // Capacity exhaustion is now a successful no-op, not a revert.
+        uint256 balanceBefore = usdc.balanceOf(address(recipient));
+        assert(_callPay(operator, keccak256("payout-3"), 100e6, _deadline(), POLICY_VERSION));
+        assert(usdc.balanceOf(address(recipient)) == balanceBefore);
 
         operator.refund(
             vault, keccak256("refund-1"), address(recipient), 200e6, _deadline(), POLICY_VERSION
@@ -272,5 +275,110 @@ contract RewardsTreasuryVaultTest {
 
     function _callAcceptOwnership(VaultActor actor) private returns (bool ok) {
         (ok,) = address(actor).call(abi.encodeCall(VaultActor.acceptOwnership, (vault)));
+    }
+
+    /// The pay/refund signatures must not change: the Lit action's pinned
+    /// source embeds this calldata shape, so a selector change would silently
+    /// invalidate the registered action CID.
+    function testPayAndRefundSelectorsAreStable() public pure {
+        assert(RewardsTreasuryVault.pay.selector == bytes4(0x82cb3a1e));
+        assert(RewardsTreasuryVault.refund.selector == bytes4(0xfc1af099));
+    }
+
+    function testCapacityDeferralMovesNoFundsAndConsumesNothing() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("cap-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("cap-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+
+        uint256 epoch = vault.currentEpoch();
+        uint256 spentBefore = vault.payoutSpentByEpoch(epoch);
+        uint256 balanceBefore = usdc.balanceOf(address(recipient));
+        bytes32 deferred = keccak256("cap-deferred");
+
+        assert(_callPay(operator, deferred, 100e6, _deadline(), POLICY_VERSION));
+
+        assert(usdc.balanceOf(address(recipient)) == balanceBefore);
+        assert(vault.payoutSpentByEpoch(epoch) == spentBefore);
+        // The operation id stays unconsumed so the identical operation retries.
+        assert(!vault.usedOperations(deferred));
+    }
+
+    function testDeferredOperationSucceedsUnchangedNextEpoch() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("roll-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("roll-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+
+        bytes32 deferred = keccak256("roll-deferred");
+        assert(_callPay(operator, deferred, 100e6, _deadline(), POLICY_VERSION));
+        assert(!vault.usedOperations(deferred));
+
+        vm.warp(block.timestamp + EPOCH_DURATION);
+
+        uint256 balanceBefore = usdc.balanceOf(address(recipient));
+        // Same operation id, same amount, no rewrite required.
+        operator.pay(vault, deferred, address(recipient), 100e6, _deadline(), POLICY_VERSION);
+        assert(usdc.balanceOf(address(recipient)) == balanceBefore + 100e6);
+        assert(vault.usedOperations(deferred));
+    }
+
+    function testPermanentFailuresStillRevertWhenCapacityIsAlsoExhausted() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("perm-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("perm-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+
+        // Capacity is exhausted. Each of these must STILL revert rather than
+        // being silently deferred, or a permanent fault would retry forever.
+        assert(!_callPay(operator, keccak256("perm-3"), 100e6, _deadline(), POLICY_VERSION + 1));
+        assert(!_callPay(operator, keccak256("perm-4"), 100e6, uint64(block.timestamp - 1), POLICY_VERSION));
+        assert(!_callPay(operator, keccak256("perm-1"), 100e6, _deadline(), POLICY_VERSION));
+        assert(!_callPay(operator, keccak256("perm-5"), 1_000_000e6, _deadline(), POLICY_VERSION));
+        assert(!_callPay(operator, bytes32(0), 100e6, _deadline(), POLICY_VERSION));
+        assert(!_callPay(operator, keccak256("perm-6"), 0, _deadline(), POLICY_VERSION));
+    }
+
+    function testPausedVaultRevertsEvenWithCapacityExhausted() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("pause-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("pause-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        vault.setPauseState(true, true);
+        // A pause must remain visible, never collapse into a deferral.
+        assert(!_callPay(operator, keccak256("pause-3"), 100e6, _deadline(), POLICY_VERSION));
+    }
+
+    function testRefundCapacityDefersIndependentlyOfPayouts() public {
+        vault.setPauseState(false, false);
+        operator.refund(
+            vault, keccak256("rcap-1"), address(recipient), 200e6, _deadline(), POLICY_VERSION
+        );
+        operator.refund(
+            vault, keccak256("rcap-2"), address(recipient), 200e6, _deadline(), POLICY_VERSION
+        );
+
+        bytes32 deferred = keccak256("rcap-deferred");
+        uint256 balanceBefore = usdc.balanceOf(address(recipient));
+        assert(_callRefund(operator, deferred, 200e6, _deadline(), POLICY_VERSION));
+        assert(usdc.balanceOf(address(recipient)) == balanceBefore);
+        assert(!vault.usedOperations(deferred));
+
+        // Payout capacity is untouched by refund deferral.
+        operator.pay(
+            vault, keccak256("rcap-payout"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
     }
 }
