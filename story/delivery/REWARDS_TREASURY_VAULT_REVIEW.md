@@ -140,8 +140,9 @@ operation ID. Reconciliation must mark the existing effect complete only after f
 
 ## Focused test matrix
 
-73 Foundry tests pass, including 12 vault-specific adversarial tests, 12 covering capacity
-deferral and its event payload, and 3 covering the constructor token guard. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
+74 Foundry tests pass, including 12 vault-specific adversarial tests, 12 covering capacity
+deferral and its event payload, and 4 covering the constructor token guard by exact revert
+selector. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
 change and must not be treated as the reviewed candidate.
 
 | Area | Covered |

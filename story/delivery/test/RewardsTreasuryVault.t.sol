@@ -537,14 +537,8 @@ contract VaultDeferralLogShapeTest {
 contract RewardsTreasuryVaultConstructorGuardTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    function _deploy(address token) private returns (bool ok) {
-        (ok,) = address(this).call(
-            abi.encodeCall(RewardsTreasuryVaultConstructorGuardTest.deployWith, (token))
-        );
-    }
-
-    function deployWith(address token) external {
-        new RewardsTreasuryVault(token, address(this), address(this), 1 days, 1, 1, 1, 1, 1);
+    function _deploy(address token) private returns (RewardsTreasuryVault) {
+        return new RewardsTreasuryVault(token, address(this), address(this), 1 days, 1, 1, 1, 1, 1);
     }
 
     function testRejectsATokenAddressWithNoCode() public {
@@ -552,15 +546,29 @@ contract RewardsTreasuryVaultConstructorGuardTest {
         // returndata, so _safeTransfer would accept it: every payout would emit
         // RewardPaid having moved nothing, and settlement classification would
         // durably confirm payments that never happened.
-        assert(!_deploy(address(0xdead)));
+        //
+        // Asserting the SELECTOR, not merely that something reverted: a test
+        // that only checks "it failed" cannot tell this guard from the
+        // pre-existing zero-address check.
+        vm.expectRevert(RewardsTreasuryVault.TokenNotAContract.selector);
+        _deploy(address(0xdead));
     }
 
     function testRejectsAnEoaStyleAddressThatMerelyLooksValid() public {
-        assert(!_deploy(0x1111111111111111111111111111111111111111));
+        vm.expectRevert(RewardsTreasuryVault.TokenNotAContract.selector);
+        _deploy(0x1111111111111111111111111111111111111111);
+    }
+
+    function testStillReportsZeroAddressForTheZeroToken() public {
+        // The two guards must stay distinguishable: zero is a different
+        // operator error from "non-zero but not a contract".
+        vm.expectRevert(RewardsTreasuryVault.ZeroAddress.selector);
+        _deploy(address(0));
     }
 
     function testAcceptsARealTokenContract() public {
         MockUsdc token = new MockUsdc();
-        assert(_deploy(address(token)));
+        RewardsTreasuryVault vault = _deploy(address(token));
+        assert(address(vault.usdc()) == address(token));
     }
 }
