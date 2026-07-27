@@ -11,6 +11,7 @@ interface IERC20Minimal {
 contract RewardsTreasuryVault {
     error Unauthorized();
     error ZeroAddress();
+    error TokenNotAContract();
     error ZeroAmount();
     error InvalidPolicy();
     error StalePolicy();
@@ -123,6 +124,13 @@ contract RewardsTreasuryVault {
         if (usdc_ == address(0) || owner_ == address(0) || settlementOperator_ == address(0)) {
             revert ZeroAddress();
         }
+        // A low-level call to an address with NO CODE returns success with empty
+        // returndata, which _safeTransfer accepts. Deployed against a wrong or
+        // not-yet-deployed token, every payout would emit RewardPaid having
+        // moved nothing, and settlement classification would durably confirm
+        // payments that never happened. The token is immutable, so checking
+        // once here closes the class permanently.
+        if (usdc_.code.length == 0) revert TokenNotAContract();
         if (epochDuration_ == 0) revert InvalidPolicy();
         usdc = IERC20Minimal(usdc_);
         owner = owner_;
