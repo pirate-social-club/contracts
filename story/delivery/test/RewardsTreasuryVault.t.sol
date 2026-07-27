@@ -4,8 +4,17 @@ pragma solidity ^0.8.25;
 import {RewardsTreasuryVault} from "../src/RewardsTreasuryVault.sol";
 
 interface Vm {
+    struct Log {
+        bytes32[] topics;
+        bytes data;
+        address emitter;
+    }
+
     function expectRevert(bytes4) external;
     function warp(uint256) external;
+    function expectEmit(bool, bool, bool, bool, address) external;
+    function recordLogs() external;
+    function getRecordedLogs() external returns (Log[] memory);
 }
 
 contract MockUsdc {
@@ -58,6 +67,12 @@ contract VaultActor {
 }
 
 contract RewardsTreasuryVaultTest {
+    event OperationCapacityDeferred(
+        bytes32 indexed operationId,
+        RewardsTreasuryVault.OperationKind indexed kind,
+        uint256 indexed epoch
+    );
+
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     uint64 private constant EPOCH_DURATION = 1 days;
@@ -323,7 +338,8 @@ contract RewardsTreasuryVaultTest {
         vm.warp(block.timestamp + EPOCH_DURATION);
 
         uint256 balanceBefore = usdc.balanceOf(address(recipient));
-        // Same operation id, same amount, no rewrite required.
+        // Operation id, recipient, amount and policy version are unchanged.
+        // Only the deadline is regenerated, as it is minted per signing attempt.
         operator.pay(vault, deferred, address(recipient), 100e6, _deadline(), POLICY_VERSION);
         assert(usdc.balanceOf(address(recipient)) == balanceBefore + 100e6);
         assert(vault.usedOperations(deferred));
@@ -379,6 +395,140 @@ contract RewardsTreasuryVaultTest {
         // Payout capacity is untouched by refund deferral.
         operator.pay(
             vault, keccak256("rcap-payout"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+    }
+
+    function testPayoutDeferralEmitsTheExactEventTheApiParses() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("evt-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("evt-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+
+        bytes32 deferred = keccak256("evt-deferred");
+        uint256 epoch = vault.currentEpoch();
+
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit OperationCapacityDeferred(deferred, RewardsTreasuryVault.OperationKind.Payout, epoch);
+        operator.pay(vault, deferred, address(recipient), 100e6, _deadline(), POLICY_VERSION);
+    }
+
+    function testRefundDeferralEmitsTheExactEventTheApiParses() public {
+        vault.setPauseState(true, false);
+        operator.refund(
+            vault, keccak256("revt-1"), address(recipient), 200e6, _deadline(), POLICY_VERSION
+        );
+        operator.refund(
+            vault, keccak256("revt-2"), address(recipient), 200e6, _deadline(), POLICY_VERSION
+        );
+
+        bytes32 deferred = keccak256("revt-deferred");
+        uint256 epoch = vault.currentEpoch();
+
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit OperationCapacityDeferred(deferred, RewardsTreasuryVault.OperationKind.Refund, epoch);
+        operator.refund(vault, deferred, address(recipient), 200e6, _deadline(), POLICY_VERSION);
+    }
+
+    function testRepeatedSameEpochDeferralStaysUnconsumedAndConsistent() public {
+        vault.setPauseState(false, true);
+        operator.pay(
+            vault, keccak256("rep-1"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+        operator.pay(
+            vault, keccak256("rep-2"), address(recipient), 100e6, _deadline(), POLICY_VERSION
+        );
+
+        bytes32 deferred = keccak256("rep-deferred");
+        uint256 epoch = vault.currentEpoch();
+        uint256 balanceBefore = usdc.balanceOf(address(recipient));
+        uint256 spentBefore = vault.payoutSpentByEpoch(epoch);
+
+        for (uint256 i = 0; i < 3; i++) {
+            vm.expectEmit(true, true, true, true, address(vault));
+            emit OperationCapacityDeferred(
+                deferred, RewardsTreasuryVault.OperationKind.Payout, epoch
+            );
+            operator.pay(vault, deferred, address(recipient), 100e6, _deadline(), POLICY_VERSION);
+            // Retrying inside the same epoch never consumes the id, never moves
+            // funds, and never charges capacity.
+            assert(!vault.usedOperations(deferred));
+            assert(usdc.balanceOf(address(recipient)) == balanceBefore);
+            assert(vault.payoutSpentByEpoch(epoch) == spentBefore);
+        }
+    }
+}
+
+/// Standalone so the Vm.Log[] decode compiles: doing it inside the main suite
+/// exceeds the legacy pipeline's stack, and enabling via_ir would change the
+/// compiled bytecode of a contract awaiting independent review.
+contract VaultDeferralLogShapeTest {
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    MockUsdc private usdc;
+    RewardsTreasuryVault private vault;
+    VaultActor private operator;
+    VaultActor private recipient;
+
+    function setUp() public {
+        usdc = new MockUsdc();
+        operator = new VaultActor();
+        recipient = new VaultActor();
+        vault = new RewardsTreasuryVault(
+            address(usdc), address(this), address(operator), 1 days, 1, 100e6, 200e6, 100e6, 200e6
+        );
+        usdc.mint(address(vault), 1_000e6);
+        vault.setPauseState(false, false);
+    }
+
+    function testDeferralLogShapeAndAbsenceOfSettlementEvents() public {
+        uint64 deadline = uint64(block.timestamp + 1 hours);
+        operator.pay(vault, keccak256("a"), address(recipient), 100e6, deadline, 1);
+        operator.pay(vault, keccak256("b"), address(recipient), 100e6, deadline, 1);
+
+        vm.recordLogs();
+        operator.pay(vault, keccak256("deferred"), address(recipient), 100e6, deadline, 1);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assert(logs.length == 1);
+        assert(logs[0].emitter == address(vault));
+        assert(logs[0].topics.length == 4);
+        assert(logs[0].topics[0] == keccak256("OperationCapacityDeferred(bytes32,uint8,uint256)"));
+        assert(logs[0].topics[1] == keccak256("deferred"));
+        assert(uint256(logs[0].topics[2]) == 0);
+        assert(uint256(logs[0].topics[3]) == vault.currentEpoch());
+    }
+
+    function testRefundDeferralLogShape() public {
+        uint64 deadline = uint64(block.timestamp + 1 hours);
+        operator.refund(vault, keccak256("ra"), address(recipient), 100e6, deadline, 1);
+        operator.refund(vault, keccak256("rb"), address(recipient), 100e6, deadline, 1);
+
+        vm.recordLogs();
+        operator.refund(vault, keccak256("rdeferred"), address(recipient), 100e6, deadline, 1);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assert(logs.length == 1);
+        assert(logs[0].emitter == address(vault));
+        assert(uint256(logs[0].topics[2]) == 1);
+    }
+
+    function testSettlementStillEmitsItsOwnEventWithCapacityAvailable() public {
+        vm.recordLogs();
+        operator.pay(
+            vault, keccak256("paid"), address(recipient), 100e6, uint64(block.timestamp + 1 hours), 1
+        );
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // A settled payout emits RewardPaid and never the deferral event.
+        assert(logs.length == 1);
+        assert(
+            logs[0].topics[0] == keccak256("RewardPaid(bytes32,address,uint256,uint64,uint256)")
+        );
+        assert(
+            logs[0].topics[0] != keccak256("OperationCapacityDeferred(bytes32,uint8,uint256)")
         );
     }
 }

@@ -140,8 +140,8 @@ operation ID. Reconciliation must mark the existing effect complete only after f
 
 ## Focused test matrix
 
-64 Foundry tests pass, including 12 vault-specific adversarial tests and 6 covering capacity
-deferral. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
+70 Foundry tests pass, including 12 vault-specific adversarial tests and 12 covering capacity
+deferral and its event payload. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
 change and must not be treated as the reviewed candidate.
 
 | Area | Covered |
@@ -155,6 +155,10 @@ change and must not be treated as the reviewed candidate.
 | Deferral retry | The identical operation ID succeeds unchanged in the next epoch |
 | Deferral precedence | Stale policy, expired deadline, replay, over-limit, zero-value and paused operations still revert while capacity is exhausted |
 | Refund deferral | Refund capacity defers independently and leaves payout capacity intact |
+| Deferral event payload | `expectEmit` asserts emitter, operation ID, operation kind and epoch for both payout and refund |
+| Deferral log shape | Exactly one log, emitted by the vault, topic0 = `OperationCapacityDeferred(bytes32,uint8,uint256)`, and no settlement event alongside it |
+| Settlement log shape | A settled payout emits `RewardPaid` and never the deferral event |
+| Repeated deferral | Retrying in the same epoch emits consistently and never consumes the id, moves funds, or charges capacity |
 | ABI stability | `pay`/`refund` selectors unchanged (`0x82cb3a1e`, `0xfc1af099`) so the pinned action CID stays valid |
 | Separate reserves | Refund capacity remains independent from payout capacity |
 | Epoch behavior | Capacity becomes available in the next fixed epoch |
