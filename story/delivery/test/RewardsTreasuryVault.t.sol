@@ -532,3 +532,35 @@ contract VaultDeferralLogShapeTest {
         );
     }
 }
+
+/// Standalone: these deploy their own vaults with deliberately bad arguments.
+contract RewardsTreasuryVaultConstructorGuardTest {
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    function _deploy(address token) private returns (bool ok) {
+        (ok,) = address(this).call(
+            abi.encodeCall(RewardsTreasuryVaultConstructorGuardTest.deployWith, (token))
+        );
+    }
+
+    function deployWith(address token) external {
+        new RewardsTreasuryVault(token, address(this), address(this), 1 days, 1, 1, 1, 1, 1);
+    }
+
+    function testRejectsATokenAddressWithNoCode() public {
+        // A low-level call to a codeless address returns success with empty
+        // returndata, so _safeTransfer would accept it: every payout would emit
+        // RewardPaid having moved nothing, and settlement classification would
+        // durably confirm payments that never happened.
+        assert(!_deploy(address(0xdead)));
+    }
+
+    function testRejectsAnEoaStyleAddressThatMerelyLooksValid() public {
+        assert(!_deploy(0x1111111111111111111111111111111111111111));
+    }
+
+    function testAcceptsARealTokenContract() public {
+        MockUsdc token = new MockUsdc();
+        assert(_deploy(address(token)));
+    }
+}

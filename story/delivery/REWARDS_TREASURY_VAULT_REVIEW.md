@@ -140,8 +140,8 @@ operation ID. Reconciliation must mark the existing effect complete only after f
 
 ## Focused test matrix
 
-70 Foundry tests pass, including 12 vault-specific adversarial tests and 12 covering capacity
-deferral and its event payload. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
+73 Foundry tests pass, including 12 vault-specific adversarial tests, 12 covering capacity
+deferral and its event payload, and 3 covering the constructor token guard. This supersedes the earlier 58-test artifact, which predates the capacity-deferral
 change and must not be treated as the reviewed candidate.
 
 | Area | Covered |
@@ -159,6 +159,7 @@ change and must not be treated as the reviewed candidate.
 | Deferral log shape | Exactly one log, emitted by the vault, topic0 = `OperationCapacityDeferred(bytes32,uint8,uint256)`, and no settlement event alongside it |
 | Settlement log shape | A settled payout emits `RewardPaid` and never the deferral event |
 | Repeated deferral | Retrying in the same epoch emits consistently and never consumes the id, moves funds, or charges capacity |
+| Token identity | Constructor rejects a `usdc_` address with no code, so a codeless address cannot silently satisfy `_safeTransfer` |
 | ABI stability | `pay`/`refund` selectors unchanged (`0x82cb3a1e`, `0xfc1af099`) so the pinned action CID stays valid |
 | Separate reserves | Refund capacity remains independent from payout capacity |
 | Epoch behavior | Capacity becomes available in the next fixed epoch |
