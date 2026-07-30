@@ -230,7 +230,7 @@ Complete this block before deployment:
 - maximum EOA gas float: `0.002 ETH`; alert at `0.0005 ETH`
 - hardening/TEE revisit tripwire: any of vault float above 500 USDC, weekly payouts above
   500 USDC, or more than 100 distinct payout recipients in a week
-- approver and approval timestamp: Alex (owner), 2026-07-30; explicit approval recorded in the
+- approver and approval timestamp: project owner, 2026-07-30; explicit approval recorded in the
   rewards launch session
 
 Cashout admission currently creates one payout effect for the user's full requested amount; it
