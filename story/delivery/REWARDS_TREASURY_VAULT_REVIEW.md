@@ -232,6 +232,10 @@ Complete this block before deployment:
   500 USDC, or more than 100 distinct payout recipients in a week
 - approver and approval timestamp: **TBD**
 
+Cashout admission currently creates one payout effect for the user's full requested amount; it
+does not split a large cashout into multiple capped operations. The 25 USDC `maxPayout` is
+therefore the largest cashout that can settle without a policy change.
+
 The 10 USDC float is intentionally smaller than `maxPayout`. A cashout above the available
 vault balance will fail on-chain, after which the coordinator marks the payout failed and
 releases its allocation; the user's earned balance is not permanently stranded and can be
