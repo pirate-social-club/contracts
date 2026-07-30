@@ -1,10 +1,11 @@
 # RewardsTreasuryVault reviewer brief
 
-Status: engineering draft; not approved for deployment.
+Status: owner approval pending. Engineering review is complete for a bounded-float EOA launch;
+the owner parameters and approval record below must be completed before Base mainnet deployment.
 
 ## Purpose
 
-`RewardsTreasuryVault` separates reward custody from the Lit-controlled transaction signer.
+`RewardsTreasuryVault` separates reward custody from a purpose-built EOA transaction signer.
 Campaign funders send canonical Base USDC to the vault. The operator can request only bounded
 payouts and refunds. A Base Safe owns policy, pause, operator rotation, ownership transfer, and
 emergency recovery.
@@ -17,10 +18,13 @@ does not accept native currency.
 - `owner`: a deployed Base Safe. This role can change policy, pause either routine path, rotate
   the operator, recover foreign tokens, and withdraw USDC only while both routine paths are
   paused.
-- `settlementOperator`: the Lit-controlled EVM signer. It can invoke only `pay` and `refund`.
+- `settlementOperator`: a purpose-built EOA with gas only and no other role. It can invoke only
+  `pay` and `refund`.
 - `usdc`: immutable canonical Base USDC supplied at deployment.
-- Worker/Lit usage key: outside this contract. Compromise can consume the configured caps but
-  cannot change them, rotate authority, recover tokens, or exceed the vault balance.
+- Worker runtime secret: outside this contract. Compromise can consume the configured caps but
+  cannot change them, rotate authority, recover tokens, or exceed the vault balance. Gas
+  overpayment is not contract-capped; it is bounded by the deliberately small ETH balance held
+  by the settlement EOA.
 
 ## State invariants
 
@@ -42,8 +46,8 @@ does not accept native currency.
 Existing API payout/refund effect IDs are variable-length strings (for example
 `rpe_<32 hex>`), while the vault ABI accepts `bytes32`. The API must therefore derive
 `operationId = keccak256(UTF8(exactEffectId))` without case, Unicode, prefix, or whitespace
-normalization, while retaining the exact source effect ID as the database join key. The Worker,
-Lit Action, and reconciliation path must share fixed cross-language test vectors. The
+normalization, while retaining the exact source effect ID as the database join key. The
+Worker-side EOA builder and reconciliation path must share fixed test vectors. The
 `RewardPaid`, `RewardRefunded` and `OperationCapacityDeferred` events index that digest so
 reconciliation remains a deterministic pure join to the existing effect row.
 
@@ -80,10 +84,10 @@ is also exhausted. Only capacity defers.
 
 Operational consequence: a deferred no-op still consumes gas. The coordinator must schedule
 retries against the next on-chain epoch boundary rather than a generic timer, and signer-ETH
-monitoring must account for deferred no-op gas — a compromised usage key can spam valid no-op
+monitoring must account for deferred no-op gas — a compromised runtime key can spam valid no-op
 transactions even though it cannot move vault funds.
 
-The Lit action and Worker-side verifier must bind and compare:
+The EOA builder and backend-aware preflight must bind and compare:
 
 - method (`pay` or `refund`);
 - vault address;
@@ -94,11 +98,14 @@ The Lit action and Worker-side verifier must bind and compare:
 - policy version;
 - signer, chain ID, nonce, transaction type, zero native value, and gas fields.
 
-The action deliberately makes no RPC or other network calls. It constructs and signs the exact
-vault transaction from coordinator-supplied nonce and gas fields after enforcing source-pinned
-chain, vault, signer, policy-version, deadline, and gas ceilings. This removes an external RPC
-trust anchor from the TEE policy entirely; chain observation, nonce allocation, broadcast, and
-finality remain in the Worker coordinator and its independently verified transaction path.
+The Durable Object is the nonce-serialization point. It constructs and signs the exact vault
+transaction only after backend-aware preflight confirms that the configured signer equals the
+on-chain `settlementOperator`. Chain observation, nonce allocation, fee replacement, broadcast,
+and finality remain in the Worker coordinator. Vault address, operator identity, policy version,
+deadline, amount limits, replay protection, and chain selection are contract- or
+destination-enforced. The former Lit gas ceilings have no on-chain counterpart; that residual
+risk is accepted only while the EOA gas float remains deliberately small and depletion and
+pending-transaction age are alerted.
 
 Funding receipt verification does not change: ERC-20 `Transfer` logs work for contract
 recipients.
@@ -172,18 +179,24 @@ change and must not be treated as the reviewed candidate.
 | Token failure | False-return transfer rolls back replay and cap state |
 | Ownership | Only pending owner can accept two-step transfer |
 
-## Reviewer questions
+## Reviewer-question disposition for bounded-float launch
 
-1. Is a fixed epoch acceptable, or is a rolling-window limiter required despite added state and
-   review complexity?
-2. Should policy changes require full pause, a timelock, or a delayed activation epoch?
-3. Should operator rotation require full pause or delayed activation?
-4. Should emergency USDC withdrawal be timelocked in addition to Safe approval and full pause?
-5. Should the contract enforce a maximum deadline horizon rather than only expiry?
-6. Are separate refund and payout caps sufficient, or should there also be a shared global cap?
-7. Is low-level ERC-20 transfer compatibility appropriate for canonical Base USDC, and should
-   malformed nonempty return data have a dedicated error?
-8. Should ownership cancellation be explicit, or is overwriting `pendingOwner` sufficient?
+These are explicitly deferred, not unanswered, for a launch whose USDC custody and signer-gas
+balances are bounded by the owner-approved ceilings below. Revisit them before either ceiling is
+raised past the recorded tripwire.
+
+1. Accept the fixed UTC-aligned epoch; defer a rolling-window limiter.
+2. Accept immediate Safe policy changes; use the launch runbook's pause ceremony and defer an
+   on-chain timelock or delayed activation.
+3. Accept immediate Safe operator rotation; production cutover remains
+   pause → rotate → deploy/configure → preflight → unpause.
+4. Accept Safe approval plus full pause for emergency USDC withdrawal; defer an additional
+   timelock.
+5. Accept expiry-only deadline enforcement; defer a maximum deadline horizon.
+6. Accept separate payout and refund caps; defer a shared global cap.
+7. Accept the existing low-level transfer compatibility for canonical Base USDC and the current
+   malformed-return behavior.
+8. Accept replacement of `pendingOwner` as cancellation; defer a separate cancellation method.
 
 ## Owner decisions required before deployment
 
@@ -194,7 +207,34 @@ change and must not be treated as the reviewed candidate.
 3. `maxRefund` and `refundEpochCap`, with `maxRefund` intentionally above plausible accidental
    deposits rather than merely above the campaign budget ceiling.
 4. Safe signers, threshold, modules/guards, and emergency ceremony.
-5. Initial Lit operator and policy version.
+5. Initial purpose-built EOA operator address and policy version. The private key must be
+   generated without logs or shell history, stored in Infisical as source and a Cloudflare
+   secret at runtime, and never recorded in deployment evidence.
+6. Maximum USDC vault float and maximum EOA gas float.
+7. The balance or weekly-volume tripwire that requires a fresh review of stronger signing,
+   timelocks, guardians, and the eight deferred questions above.
+
+## Owner approval record
+
+Complete this block before deployment:
+
+- `epochDuration`: **TBD** (proposal: `86400`, one fixed UTC-aligned day)
+- `maxPayout`: **TBD** (proposal: `5_000_000`, 5 USDC)
+- `payoutEpochCap`: **TBD** (proposal: `25_000_000`–`30_000_000`, 25–30 USDC/day)
+- `maxRefund`: **TBD** (must exceed a plausible accidental single deposit)
+- `refundEpochCap`: **TBD**
+- Safe owners and threshold: **TBD** (proposal at bounded float: 1-of-1)
+- initial policy version: **TBD**
+- maximum vault float: **TBD**
+- maximum EOA gas float: **TBD**
+- hardening/TEE revisit tripwire: **TBD**
+- approver and approval timestamp: **TBD**
+
+Approval statement:
+
+> Approved for Base mainnet deployment only within the vault and gas-float ceilings recorded
+> above. The fixed-epoch model and reviewer-question deferrals are accepted for that bounded
+> launch. Raising either ceiling past the recorded tripwire requires a new review.
 
 ## Predeployment evidence
 
@@ -202,7 +242,13 @@ change and must not be treated as the reviewed candidate.
   transaction.
 - Verify `usdc` equals canonical Base USDC and `owner` equals the intended deployed Safe.
 - Verify Safe owners, threshold, modules, guards, fallback handler, and nonce.
-- Verify initial operator address against the Lit action/group/PKP evidence.
+- Verify the recorded EOA address equals the configured signer and the on-chain
+  `settlementOperator`; record only the address in topology evidence.
 - Set conservative limits and keep both paths paused through source verification.
-- Exercise the full Sepolia test-vault flow before Base mainnet deployment.
+- **Satisfied 2026-07-30:** Base Sepolia transaction
+  `0x269914970c62c6dee23d8779af33f9b84396260d98f7074fb911ab1309671418`
+  settled exactly 5,000,000 atomic USDC through `pay`, emitted `RewardPaid`, used policy version
+  2, and consumed 108,550 gas. The transaction sender was the purpose-built EOA
+  `0xf536b0DAfD04AE1E5ADB8C170880c7996Fa26c5C`, proving the EOA backend signed an
+  accepted vault transaction.
 - Obtain independent review sign-off and disposition every finding before funding.
