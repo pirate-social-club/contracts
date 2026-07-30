@@ -218,17 +218,25 @@ raised past the recorded tripwire.
 
 Complete this block before deployment:
 
-- `epochDuration`: **TBD** (proposal: `86400`, one fixed UTC-aligned day)
-- `maxPayout`: **TBD** (proposal: `5_000_000`, 5 USDC)
-- `payoutEpochCap`: **TBD** (proposal: `25_000_000`–`30_000_000`, 25–30 USDC/day)
-- `maxRefund`: **TBD** (must exceed a plausible accidental single deposit)
-- `refundEpochCap`: **TBD**
-- Safe owners and threshold: **TBD** (proposal at bounded float: 1-of-1)
-- initial policy version: **TBD**
-- maximum vault float: **TBD**
-- maximum EOA gas float: **TBD**
-- hardening/TEE revisit tripwire: **TBD**
+- `epochDuration`: `86400` (one fixed UTC-aligned day)
+- `maxPayout`: `25_000_000` (25 USDC)
+- `payoutEpochCap`: `30_000_000` (30 USDC/day)
+- `maxRefund`: `25_000_000` (25 USDC); the automated refund recipient is
+  operator-supplied, so larger mistakes require the fully paused Safe recovery path
+- `refundEpochCap`: `25_000_000` (25 USDC/day)
+- Safe owners and threshold: 1-of-1 for the bounded launch
+- initial policy version: `1`
+- maximum vault float: `10_000_000` (10 USDC); refill manually after daily review
+- maximum EOA gas float: `0.002 ETH`; alert at `0.0005 ETH`
+- hardening/TEE revisit tripwire: any of vault float above 500 USDC, weekly payouts above
+  500 USDC, or more than 100 distinct payout recipients in a week
 - approver and approval timestamp: **TBD**
+
+The 10 USDC float is intentionally smaller than `maxPayout`. A cashout above the available
+vault balance will fail on-chain, after which the coordinator marks the payout failed and
+releases its allocation; the user's earned balance is not permanently stranded and can be
+retried after a manual refill. This failed attempt consumes a small amount of EOA gas. The
+bounded launch accepts that behavior instead of adding a vault-liquidity admission check.
 
 Approval statement:
 
