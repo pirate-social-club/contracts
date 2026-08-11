@@ -5,7 +5,11 @@ import {AssetPublishCoordinatorV1} from "../src/AssetPublishCoordinatorV1.sol";
 import {PurchaseEntitlementToken} from "../src/PurchaseEntitlementToken.sol";
 
 contract PublishActor {
-    function setPublishOperator(AssetPublishCoordinatorV1 coordinator, address operator, bool active) external {
+    function setPublishOperator(
+        AssetPublishCoordinatorV1 coordinator,
+        address operator,
+        bool active
+    ) external {
         coordinator.setPublishOperator(operator, active);
     }
 
@@ -34,9 +38,11 @@ contract PublishActor {
         );
     }
 
-    function setAssetVersionActive(AssetPublishCoordinatorV1 coordinator, bytes32 assetVersionId, bool active)
-        external
-    {
+    function setAssetVersionActive(
+        AssetPublishCoordinatorV1 coordinator,
+        bytes32 assetVersionId,
+        bool active
+    ) external {
         coordinator.setAssetVersionActive(assetVersionId, active);
     }
 }
@@ -108,21 +114,22 @@ contract AssetPublishCoordinatorV1Test {
     }
 
     function testRejectsUnauthorizedPublish() public {
-        (bool ok,) = address(stranger).call(
-            abi.encodeWithSelector(
-                PublishActor.publishAssetVersion.selector,
-                coordinator,
-                address(publisher),
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                NAMESPACE,
-                CONTENT_HASH,
-                STORAGE_REF_HASH,
-                TOKEN_ID,
-                READ_CONDITION,
-                WRITE_CONDITION
-            )
-        );
+        (bool ok,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.publishAssetVersion.selector,
+                    coordinator,
+                    address(publisher),
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    NAMESPACE,
+                    CONTENT_HASH,
+                    STORAGE_REF_HASH,
+                    TOKEN_ID,
+                    READ_CONDITION,
+                    WRITE_CONDITION
+                )
+            );
         assert(!ok);
     }
 
@@ -140,59 +147,64 @@ contract AssetPublishCoordinatorV1Test {
             WRITE_CONDITION
         );
 
-        (bool ok,) = address(operator).call(
-            abi.encodeWithSelector(
-                PublishActor.publishAssetVersion.selector,
-                coordinator,
-                address(publisher),
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                NAMESPACE,
-                CONTENT_HASH,
-                STORAGE_REF_HASH,
-                TOKEN_ID,
-                READ_CONDITION,
-                WRITE_CONDITION
-            )
-        );
+        (bool ok,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.publishAssetVersion.selector,
+                    coordinator,
+                    address(publisher),
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    NAMESPACE,
+                    CONTENT_HASH,
+                    STORAGE_REF_HASH,
+                    TOKEN_ID,
+                    READ_CONDITION,
+                    WRITE_CONDITION
+                )
+            );
         assert(!ok);
     }
 
     function testRejectsMissingOrMismatchedEntitlementClass() public {
-        (bool unknownClassOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                PublishActor.publishAssetVersion.selector,
-                coordinator,
-                address(publisher),
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                NAMESPACE,
-                CONTENT_HASH,
-                STORAGE_REF_HASH,
-                TOKEN_ID + 1,
-                READ_CONDITION,
-                WRITE_CONDITION
-            )
-        );
+        (bool unknownClassOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.publishAssetVersion.selector,
+                    coordinator,
+                    address(publisher),
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    NAMESPACE,
+                    CONTENT_HASH,
+                    STORAGE_REF_HASH,
+                    TOKEN_ID + 1,
+                    READ_CONDITION,
+                    WRITE_CONDITION
+                )
+            );
         assert(!unknownClassOk);
 
-        token.configureEntitlementClass(TOKEN_ID + 1, keccak256("other-asset-version"), VAULT_UUID, true);
-
-        (bool mismatchOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                PublishActor.publishAssetVersion.selector,
-                coordinator,
-                address(publisher),
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                NAMESPACE,
-                CONTENT_HASH,
-                STORAGE_REF_HASH,
-                TOKEN_ID + 1,
-                READ_CONDITION,
-                WRITE_CONDITION
-            )
+        token.configureEntitlementClass(
+            TOKEN_ID + 1, keccak256("other-asset-version"), VAULT_UUID, true
         );
+
+        (bool mismatchOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.publishAssetVersion.selector,
+                    coordinator,
+                    address(publisher),
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    NAMESPACE,
+                    CONTENT_HASH,
+                    STORAGE_REF_HASH,
+                    TOKEN_ID + 1,
+                    READ_CONDITION,
+                    WRITE_CONDITION
+                )
+            );
         assert(!mismatchOk);
     }
 
@@ -211,11 +223,11 @@ contract AssetPublishCoordinatorV1Test {
         );
 
         publisher.setAssetVersionActive(coordinator, ASSET_VERSION_ID, false);
-        (, , , , , , , , bool activeAfterPublisher,) = coordinator.publishedAssetVersions(ASSET_VERSION_ID);
+        (,,,,,,,, bool activeAfterPublisher,) = coordinator.publishedAssetVersions(ASSET_VERSION_ID);
         assert(!activeAfterPublisher);
 
         operator.setAssetVersionActive(coordinator, ASSET_VERSION_ID, true);
-        (, , , , , , , , bool activeAfterOperator,) = coordinator.publishedAssetVersions(ASSET_VERSION_ID);
+        (,,,,,,,, bool activeAfterOperator,) = coordinator.publishedAssetVersions(ASSET_VERSION_ID);
         assert(activeAfterOperator);
     }
 
@@ -233,28 +245,33 @@ contract AssetPublishCoordinatorV1Test {
             WRITE_CONDITION
         );
 
-        (bool toggleOk,) = address(stranger).call(
-            abi.encodeWithSelector(
-                PublishActor.setAssetVersionActive.selector, coordinator, ASSET_VERSION_ID, false
-            )
-        );
+        (bool toggleOk,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.setAssetVersionActive.selector,
+                    coordinator,
+                    ASSET_VERSION_ID,
+                    false
+                )
+            );
         assert(!toggleOk);
 
-        (bool zeroFieldOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                PublishActor.publishAssetVersion.selector,
-                coordinator,
-                address(publisher),
-                bytes32(0),
-                VAULT_UUID,
-                NAMESPACE,
-                CONTENT_HASH,
-                STORAGE_REF_HASH,
-                TOKEN_ID,
-                READ_CONDITION,
-                WRITE_CONDITION
-            )
-        );
+        (bool zeroFieldOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    PublishActor.publishAssetVersion.selector,
+                    coordinator,
+                    address(publisher),
+                    bytes32(0),
+                    VAULT_UUID,
+                    NAMESPACE,
+                    CONTENT_HASH,
+                    STORAGE_REF_HASH,
+                    TOKEN_ID,
+                    READ_CONDITION,
+                    WRITE_CONDITION
+                )
+            );
         assert(!zeroFieldOk);
     }
 }

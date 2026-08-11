@@ -44,14 +44,8 @@ contract SignedAccessCdrConditionV1 {
     error InvalidSignature();
 
     bytes32 public constant ACCESS_PROOF_TYPEHASH = keccak256(
-        "AccessProof("
-            "uint32 vaultUuid,"
-            "address caller,"
-            "bytes32 accessRef,"
-            "bytes32 scope,"
-            "uint64 expiry,"
-            "bytes32 namespace"
-        ")"
+        "AccessProof(" "uint32 vaultUuid," "address caller," "bytes32 accessRef," "bytes32 scope,"
+        "uint64 expiry," "bytes32 namespace" ")"
     );
 
     bytes32 public constant SCOPE_ASSET_OWNER = keccak256("asset.owner");
@@ -85,38 +79,42 @@ contract SignedAccessCdrConditionV1 {
         );
     }
 
-    function checkReadCondition(address caller, bytes calldata conditionData, bytes calldata accessAuxData)
-        external
-        view
-        returns (bool)
-    {
+    function checkReadCondition(
+        address caller,
+        bytes calldata conditionData,
+        bytes calldata accessAuxData
+    ) external view returns (bool) {
         return _checkReadCondition(caller, conditionData, accessAuxData);
     }
 
-    function checkReadCondition(uint32, bytes calldata accessAuxData, bytes calldata conditionData, address caller)
-        external
-        view
-        returns (bool)
-    {
+    function checkReadCondition(
+        uint32,
+        bytes calldata accessAuxData,
+        bytes calldata conditionData,
+        address caller
+    ) external view returns (bool) {
         return _checkReadCondition(caller, conditionData, accessAuxData);
     }
 
-    function _checkReadCondition(address caller, bytes calldata conditionData, bytes calldata accessAuxData)
-        internal
-        view
-        returns (bool)
-    {
+    function _checkReadCondition(
+        address caller,
+        bytes calldata conditionData,
+        bytes calldata accessAuxData
+    ) internal view returns (bool) {
         (bytes32 namespace, address writer) = abi.decode(conditionData, (bytes32, address));
         if (accessAuxData.length == 0) {
             return caller == writer;
         }
 
-        (AccessProof memory proof, bytes memory signature) = abi.decode(accessAuxData, (AccessProof, bytes));
+        (AccessProof memory proof, bytes memory signature) =
+            abi.decode(accessAuxData, (AccessProof, bytes));
 
         if (proof.caller != caller) revert CallerMismatch();
         if (proof.namespace != namespace) revert NamespaceMismatch();
         if (proof.expiry < block.timestamp) revert ProofExpired();
-        if (proof.scope != SCOPE_ASSET_OWNER && proof.scope != SCOPE_ASSET_SHARE) revert UnknownScope();
+        if (proof.scope != SCOPE_ASSET_OWNER && proof.scope != SCOPE_ASSET_SHARE) {
+            revert UnknownScope();
+        }
 
         address signer = _hashProof(proof).recover(signature);
         if (!signerRegistry.isActiveSigner(signer)) revert InvalidSignature();
@@ -131,15 +129,20 @@ contract SignedAccessCdrConditionV1 {
         return _checkWriteCondition(caller, conditionData);
     }
 
-    function checkWriteCondition(uint32, bytes calldata, bytes calldata conditionData, address caller)
-        external
-        pure
-        returns (bool)
-    {
+    function checkWriteCondition(
+        uint32,
+        bytes calldata,
+        bytes calldata conditionData,
+        address caller
+    ) external pure returns (bool) {
         return _checkWriteCondition(caller, conditionData);
     }
 
-    function _checkWriteCondition(address caller, bytes calldata conditionData) internal pure returns (bool) {
+    function _checkWriteCondition(address caller, bytes calldata conditionData)
+        internal
+        pure
+        returns (bool)
+    {
         address writer = abi.decode(conditionData, (address));
         return caller == writer;
     }

@@ -6,7 +6,9 @@ import {SignedAccessConditionV1} from "../src/SignedAccessConditionV1.sol";
 
 interface Vm {
     function addr(uint256 privateKey) external returns (address);
-    function sign(uint256 privateKey, bytes32 digest) external returns (uint8 v, bytes32 r, bytes32 s);
+    function sign(uint256 privateKey, bytes32 digest)
+        external
+        returns (uint8 v, bytes32 r, bytes32 s);
     function warp(uint256 newTimestamp) external;
 }
 
@@ -41,7 +43,8 @@ contract SignedAccessConditionV1Test {
         );
 
         bytes memory accessAuxData = abi.encode(proof, _sign(SIGNER_PK, proof));
-        bool allowed = condition.checkReadCondition(proof.caller, abi.encode(proof.namespace), accessAuxData);
+        bool allowed =
+            condition.checkReadCondition(proof.caller, abi.encode(proof.namespace), accessAuxData);
 
         assert(allowed);
     }
@@ -56,7 +59,8 @@ contract SignedAccessConditionV1Test {
         );
 
         bytes memory accessAuxData = abi.encode(proof, _sign(SIGNER_PK, proof));
-        bool allowed = condition.checkReadCondition(proof.caller, abi.encode(proof.namespace), accessAuxData);
+        bool allowed =
+            condition.checkReadCondition(proof.caller, abi.encode(proof.namespace), accessAuxData);
 
         assert(allowed);
     }
@@ -70,14 +74,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                address(0xDEAD),
-                abi.encode(proof.namespace),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    address(0xDEAD),
+                    abi.encode(proof.namespace),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -90,14 +95,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(keccak256("other-namespace")),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(keccak256("other-namespace")),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -110,14 +116,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(proof.namespace),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(proof.namespace),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -130,14 +137,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(proof.namespace),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(proof.namespace),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -150,14 +158,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(proof.namespace),
-                abi.encode(proof, _sign(OTHER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(proof.namespace),
+                    abi.encode(proof, _sign(OTHER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -173,14 +182,15 @@ contract SignedAccessConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(proof.namespace),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(proof.namespace),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -190,22 +200,27 @@ contract SignedAccessConditionV1Test {
         assert(!condition.checkWriteCondition(address(0xDCBA), conditionData, "0x"));
     }
 
-    function _proof(address caller, bytes32 scope, uint64 expiry, bytes32 namespace, bytes32 accessRef)
-        internal
-        pure
-        returns (SignedAccessConditionV1.AccessProof memory)
-    {
+    function _proof(
+        address caller,
+        bytes32 scope,
+        uint64 expiry,
+        bytes32 namespace,
+        bytes32 accessRef
+    ) internal pure returns (SignedAccessConditionV1.AccessProof memory) {
         return SignedAccessConditionV1.AccessProof({
-            vaultUuid: VAULT_UUID,
-            caller: caller,
-            accessRef: accessRef,
-            scope: scope,
-            expiry: expiry,
-            namespace: namespace
-        });
+                vaultUuid: VAULT_UUID,
+                caller: caller,
+                accessRef: accessRef,
+                scope: scope,
+                expiry: expiry,
+                namespace: namespace
+            });
     }
 
-    function _sign(uint256 privateKey, SignedAccessConditionV1.AccessProof memory proof) internal returns (bytes memory) {
+    function _sign(uint256 privateKey, SignedAccessConditionV1.AccessProof memory proof)
+        internal
+        returns (bytes memory)
+    {
         bytes32 digest = condition.hashProof(proof);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);

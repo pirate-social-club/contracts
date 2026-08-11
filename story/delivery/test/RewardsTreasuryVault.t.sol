@@ -357,7 +357,11 @@ contract RewardsTreasuryVaultTest {
         // Capacity is exhausted. Each of these must STILL revert rather than
         // being silently deferred, or a permanent fault would retry forever.
         assert(!_callPay(operator, keccak256("perm-3"), 100e6, _deadline(), POLICY_VERSION + 1));
-        assert(!_callPay(operator, keccak256("perm-4"), 100e6, uint64(block.timestamp - 1), POLICY_VERSION));
+        assert(
+            !_callPay(
+                operator, keccak256("perm-4"), 100e6, uint64(block.timestamp - 1), POLICY_VERSION
+            )
+        );
         assert(!_callPay(operator, keccak256("perm-1"), 100e6, _deadline(), POLICY_VERSION));
         assert(!_callPay(operator, keccak256("perm-5"), 1_000_000e6, _deadline(), POLICY_VERSION));
         assert(!_callPay(operator, bytes32(0), 100e6, _deadline(), POLICY_VERSION));
@@ -518,18 +522,19 @@ contract VaultDeferralLogShapeTest {
     function testSettlementStillEmitsItsOwnEventWithCapacityAvailable() public {
         vm.recordLogs();
         operator.pay(
-            vault, keccak256("paid"), address(recipient), 100e6, uint64(block.timestamp + 1 hours), 1
+            vault,
+            keccak256("paid"),
+            address(recipient),
+            100e6,
+            uint64(block.timestamp + 1 hours),
+            1
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // A settled payout emits RewardPaid and never the deferral event.
         assert(logs.length == 1);
-        assert(
-            logs[0].topics[0] == keccak256("RewardPaid(bytes32,address,uint256,uint64,uint256)")
-        );
-        assert(
-            logs[0].topics[0] != keccak256("OperationCapacityDeferred(bytes32,uint8,uint256)")
-        );
+        assert(logs[0].topics[0] == keccak256("RewardPaid(bytes32,address,uint256,uint64,uint256)"));
+        assert(logs[0].topics[0] != keccak256("OperationCapacityDeferred(bytes32,uint8,uint256)"));
     }
 }
 

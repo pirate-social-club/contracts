@@ -64,9 +64,7 @@ contract RewardsTreasuryVault {
     /// revert: settlement classification reads logs rather than depending on a
     /// debug-trace endpoint.
     event OperationCapacityDeferred(
-        bytes32 indexed operationId,
-        OperationKind indexed kind,
-        uint256 indexed epoch
+        bytes32 indexed operationId, OperationKind indexed kind, uint256 indexed epoch
     );
 
     event EmergencyWithdrawal(address indexed recipient, uint256 amount);

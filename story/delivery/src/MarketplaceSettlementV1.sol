@@ -2,7 +2,9 @@
 pragma solidity ^0.8.25;
 
 interface IPurchaseEntitlementToken {
-    function mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef) external returns (bool);
+    function mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef)
+        external
+        returns (bool);
 }
 
 contract MarketplaceSettlementV1 {
@@ -68,12 +70,12 @@ contract MarketplaceSettlementV1 {
         emit SettlementOperatorUpdated(operator, active);
     }
 
-    function settlePurchase(bytes32 purchaseRef, address buyer, uint256 tokenId, address payoutRecipient)
-        external
-        payable
-        onlySettlementOperator
-        nonReentrant
-    {
+    function settlePurchase(
+        bytes32 purchaseRef,
+        address buyer,
+        uint256 tokenId,
+        address payoutRecipient
+    ) external payable onlySettlementOperator nonReentrant {
         if (purchaseRef == bytes32(0)) revert ZeroAddress();
         if (buyer == address(0) || payoutRecipient == address(0)) revert ZeroAddress();
         if (msg.value == 0) revert ZeroAmount();

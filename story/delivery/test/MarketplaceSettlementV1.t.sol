@@ -7,7 +7,11 @@ import {PurchaseEntitlementToken} from "../src/PurchaseEntitlementToken.sol";
 contract SettlementActor {
     receive() external payable {}
 
-    function setSettlementOperator(MarketplaceSettlementV1 settlement, address operator, bool active) external {
+    function setSettlementOperator(
+        MarketplaceSettlementV1 settlement,
+        address operator,
+        bool active
+    ) external {
         settlement.setSettlementOperator(operator, active);
     }
 
@@ -112,16 +116,17 @@ contract MarketplaceSettlementV1Test {
     }
 
     function testRejectsZeroAmountOrZeroAddresses() public {
-        (bool zeroAmountOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                SettlementActor.settlePurchase.selector,
-                settlement,
-                PURCHASE_REF,
-                address(buyer),
-                TOKEN_ID,
-                address(recipient)
-            )
-        );
+        (bool zeroAmountOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    SettlementActor.settlePurchase.selector,
+                    settlement,
+                    PURCHASE_REF,
+                    address(buyer),
+                    TOKEN_ID,
+                    address(recipient)
+                )
+            );
         assert(!zeroAmountOk);
 
         (bool zeroBuyerOk,) = address(operator).call{value: AMOUNT}(

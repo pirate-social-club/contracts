@@ -6,7 +6,9 @@ import {SignedAccessCdrConditionV1} from "../src/SignedAccessCdrConditionV1.sol"
 
 interface Vm {
     function addr(uint256 privateKey) external returns (address);
-    function sign(uint256 privateKey, bytes32 digest) external returns (uint8 v, bytes32 r, bytes32 s);
+    function sign(uint256 privateKey, bytes32 digest)
+        external
+        returns (uint8 v, bytes32 r, bytes32 s);
     function warp(uint256 newTimestamp) external;
 }
 
@@ -34,18 +36,14 @@ contract SignedAccessCdrConditionV1Test {
 
     function testAllocateProbeAllowsWriterWithoutProof() public view {
         bool allowed = condition.checkReadCondition(
-            WRITER,
-            abi.encode(keccak256("namespace-1"), WRITER),
-            hex""
+            WRITER, abi.encode(keccak256("namespace-1"), WRITER), hex""
         );
         assert(allowed);
     }
 
     function testAllocateProbeRejectsNonWriterWithoutProof() public view {
         bool allowed = condition.checkReadCondition(
-            address(0xBEEF),
-            abi.encode(keccak256("namespace-1"), WRITER),
-            hex""
+            address(0xBEEF), abi.encode(keccak256("namespace-1"), WRITER), hex""
         );
         assert(!allowed);
     }
@@ -61,9 +59,7 @@ contract SignedAccessCdrConditionV1Test {
 
         bytes memory accessAuxData = abi.encode(proof, _sign(SIGNER_PK, proof));
         bool allowed = condition.checkReadCondition(
-            proof.caller,
-            abi.encode(proof.namespace, WRITER),
-            accessAuxData
+            proof.caller, abi.encode(proof.namespace, WRITER), accessAuxData
         );
 
         assert(allowed);
@@ -78,14 +74,15 @@ contract SignedAccessCdrConditionV1Test {
             keccak256("purchase-1")
         );
 
-        (bool ok,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                proof.caller,
-                abi.encode(keccak256("other-namespace"), WRITER),
-                abi.encode(proof, _sign(SIGNER_PK, proof))
-            )
-        );
+        (bool ok,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    proof.caller,
+                    abi.encode(keccak256("other-namespace"), WRITER),
+                    abi.encode(proof, _sign(SIGNER_PK, proof))
+                )
+            );
         assert(!ok);
     }
 
@@ -95,19 +92,21 @@ contract SignedAccessCdrConditionV1Test {
         assert(!condition.checkWriteCondition(address(0xDCBA), conditionData, "0x"));
     }
 
-    function _proof(address caller, bytes32 scope, uint64 expiry, bytes32 namespace, bytes32 accessRef)
-        internal
-        pure
-        returns (SignedAccessCdrConditionV1.AccessProof memory)
-    {
+    function _proof(
+        address caller,
+        bytes32 scope,
+        uint64 expiry,
+        bytes32 namespace,
+        bytes32 accessRef
+    ) internal pure returns (SignedAccessCdrConditionV1.AccessProof memory) {
         return SignedAccessCdrConditionV1.AccessProof({
-            vaultUuid: VAULT_UUID,
-            caller: caller,
-            accessRef: accessRef,
-            scope: scope,
-            expiry: expiry,
-            namespace: namespace
-        });
+                vaultUuid: VAULT_UUID,
+                caller: caller,
+                accessRef: accessRef,
+                scope: scope,
+                expiry: expiry,
+                namespace: namespace
+            });
     }
 
     function _sign(uint256 privateKey, SignedAccessCdrConditionV1.AccessProof memory proof)

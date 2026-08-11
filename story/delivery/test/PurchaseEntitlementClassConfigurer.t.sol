@@ -5,7 +5,11 @@ import {PurchaseEntitlementClassConfigurer} from "../src/PurchaseEntitlementClas
 import {PurchaseEntitlementToken} from "../src/PurchaseEntitlementToken.sol";
 
 contract ClassConfigurerActor {
-    function setClassConfigurer(PurchaseEntitlementClassConfigurer configurer, address account, bool active) external {
+    function setClassConfigurer(
+        PurchaseEntitlementClassConfigurer configurer,
+        address account,
+        bool active
+    ) external {
         configurer.setClassConfigurer(account, active);
     }
 
@@ -19,13 +23,16 @@ contract ClassConfigurerActor {
         configurer.configureEntitlementClass(tokenId, assetVersionId, vaultUuid, active);
     }
 
-    function transferEntitlementTokenOwnership(PurchaseEntitlementClassConfigurer configurer, address newOwner)
-        external
-    {
+    function transferEntitlementTokenOwnership(
+        PurchaseEntitlementClassConfigurer configurer,
+        address newOwner
+    ) external {
         configurer.transferEntitlementTokenOwnership(newOwner);
     }
 
-    function transferOwnership(PurchaseEntitlementClassConfigurer configurer, address newOwner) external {
+    function transferOwnership(PurchaseEntitlementClassConfigurer configurer, address newOwner)
+        external
+    {
         configurer.transferOwnership(newOwner);
     }
 }
@@ -54,9 +61,12 @@ contract PurchaseEntitlementClassConfigurerTest {
     function testClassConfigurerCanConfigureEntitlementClass() public {
         configurer.setClassConfigurer(address(runtimeConfigurer), true);
 
-        runtimeConfigurer.configureEntitlementClass(configurer, TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
+        runtimeConfigurer.configureEntitlementClass(
+            configurer, TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true
+        );
 
-        (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) = token.entitlementClasses(TOKEN_ID);
+        (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) =
+            token.entitlementClasses(TOKEN_ID);
         assert(assetVersionId == ASSET_VERSION_ID);
         assert(vaultUuid == VAULT_UUID);
         assert(active);
@@ -64,16 +74,17 @@ contract PurchaseEntitlementClassConfigurerTest {
     }
 
     function testStrangerCannotConfigureEntitlementClass() public {
-        (bool ok,) = address(stranger).call(
-            abi.encodeWithSelector(
-                ClassConfigurerActor.configureEntitlementClass.selector,
-                configurer,
-                TOKEN_ID,
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                true
-            )
-        );
+        (bool ok,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    ClassConfigurerActor.configureEntitlementClass.selector,
+                    configurer,
+                    TOKEN_ID,
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    true
+                )
+            );
 
         assert(!ok);
     }
@@ -85,13 +96,14 @@ contract PurchaseEntitlementClassConfigurerTest {
     }
 
     function testStrangerCannotRecoverEntitlementTokenOwnership() public {
-        (bool ok,) = address(stranger).call(
-            abi.encodeWithSelector(
-                ClassConfigurerActor.transferEntitlementTokenOwnership.selector,
-                configurer,
-                address(newTokenOwner)
-            )
-        );
+        (bool ok,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    ClassConfigurerActor.transferEntitlementTokenOwnership.selector,
+                    configurer,
+                    address(newTokenOwner)
+                )
+            );
 
         assert(!ok);
         assert(token.owner() == address(configurer));
@@ -113,7 +125,9 @@ contract PurchaseEntitlementClassConfigurerTest {
         assert(managedConfigurer.owner() == address(coldOwner));
         assert(managedConfigurer.isClassConfigurer(address(apiSigner)));
 
-        apiSigner.configureEntitlementClass(managedConfigurer, TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
+        apiSigner.configureEntitlementClass(
+            managedConfigurer, TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true
+        );
         (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) =
             managedToken.entitlementClasses(TOKEN_ID);
         assert(assetVersionId == ASSET_VERSION_ID);
@@ -121,16 +135,17 @@ contract PurchaseEntitlementClassConfigurerTest {
         assert(active);
         assert(exists);
 
-        (bool ok,) = address(unknown).call(
-            abi.encodeWithSelector(
-                ClassConfigurerActor.configureEntitlementClass.selector,
-                managedConfigurer,
-                uint256(keccak256("asset-version-2")),
-                keccak256("asset-version-2"),
-                uint32(8),
-                true
-            )
-        );
+        (bool ok,) = address(unknown)
+            .call(
+                abi.encodeWithSelector(
+                    ClassConfigurerActor.configureEntitlementClass.selector,
+                    managedConfigurer,
+                    uint256(keccak256("asset-version-2")),
+                    keccak256("asset-version-2"),
+                    uint32(8),
+                    true
+                )
+            );
         assert(!ok);
     }
 }

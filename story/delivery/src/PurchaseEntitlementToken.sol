@@ -16,9 +16,14 @@ contract PurchaseEntitlementToken {
     event OwnerUpdated(address indexed newOwner);
     event SettlementMinterUpdated(address indexed minter, bool active);
     event EntitlementClassConfigured(
-        uint256 indexed tokenId, bytes32 indexed assetVersionId, uint32 indexed cdrVaultUuid, bool active
+        uint256 indexed tokenId,
+        bytes32 indexed assetVersionId,
+        uint32 indexed cdrVaultUuid,
+        bool active
     );
-    event EntitlementMinted(address indexed to, uint256 indexed tokenId, bytes32 indexed purchaseRef);
+    event EntitlementMinted(
+        address indexed to, uint256 indexed tokenId, bytes32 indexed purchaseRef
+    );
     event EntitlementRevoked(address indexed from, uint256 indexed tokenId, uint8 reasonCode);
 
     struct EntitlementClass {
@@ -66,10 +71,12 @@ contract PurchaseEntitlementToken {
         emit SettlementMinterUpdated(minter, active);
     }
 
-    function configureEntitlementClass(uint256 tokenId, bytes32 assetVersionId, uint32 cdrVaultUuid, bool active)
-        external
-        onlyOwner
-    {
+    function configureEntitlementClass(
+        uint256 tokenId,
+        bytes32 assetVersionId,
+        uint32 cdrVaultUuid,
+        bool active
+    ) external onlyOwner {
         if (tokenId == 0) revert InvalidTokenId();
         if (assetVersionId == bytes32(0)) revert InvalidAssetVersionId();
         if (cdrVaultUuid == 0) revert InvalidVaultUuid();
@@ -77,7 +84,8 @@ contract PurchaseEntitlementToken {
         EntitlementClass storage entitlementClass = entitlementClasses[tokenId];
         if (entitlementClass.exists) {
             if (
-                entitlementClass.assetVersionId != assetVersionId || entitlementClass.cdrVaultUuid != cdrVaultUuid
+                entitlementClass.assetVersionId != assetVersionId
+                    || entitlementClass.cdrVaultUuid != cdrVaultUuid
             ) {
                 revert EntitlementClassMismatch();
             }
@@ -96,18 +104,23 @@ contract PurchaseEntitlementToken {
         return _balances[tokenId][account];
     }
 
-    function mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef) external onlySettlementMinter returns (bool) {
+    function mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef)
+        external
+        onlySettlementMinter
+        returns (bool)
+    {
         return _mintEntitlement(to, tokenId, purchaseRef);
     }
 
-    function mintEntitlementBatch(address[] calldata recipients, uint256[] calldata tokenIds, bytes32[] calldata purchaseRefs)
-        external
-        onlySettlementMinter
-    {
+    function mintEntitlementBatch(
+        address[] calldata recipients,
+        uint256[] calldata tokenIds,
+        bytes32[] calldata purchaseRefs
+    ) external onlySettlementMinter {
         uint256 len = recipients.length;
         if (len != tokenIds.length || len != purchaseRefs.length) revert LengthMismatch();
 
-        for (uint256 i; i < len; ) {
+        for (uint256 i; i < len;) {
             _mintEntitlement(recipients[i], tokenIds[i], purchaseRefs[i]);
             unchecked {
                 ++i;
@@ -115,7 +128,10 @@ contract PurchaseEntitlementToken {
         }
     }
 
-    function revokeEntitlement(address from, uint256 tokenId, uint8 reasonCode) external onlyOwnerOrSettlementMinter {
+    function revokeEntitlement(address from, uint256 tokenId, uint8 reasonCode)
+        external
+        onlyOwnerOrSettlementMinter
+    {
         if (from == address(0)) revert ZeroAddress();
         if (_balances[tokenId][from] == 0) return;
 
@@ -131,14 +147,20 @@ contract PurchaseEntitlementToken {
         revert NonTransferable();
     }
 
-    function safeBatchTransferFrom(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
-        external
-        pure
-    {
+    function safeBatchTransferFrom(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure {
         revert NonTransferable();
     }
 
-    function _mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef) internal returns (bool) {
+    function _mintEntitlement(address to, uint256 tokenId, bytes32 purchaseRef)
+        internal
+        returns (bool)
+    {
         if (to == address(0)) revert ZeroAddress();
         _requireMintableClass(tokenId);
 

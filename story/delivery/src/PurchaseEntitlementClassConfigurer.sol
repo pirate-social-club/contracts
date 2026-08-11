@@ -2,8 +2,12 @@
 pragma solidity ^0.8.25;
 
 interface IPurchaseEntitlementTokenForClassConfigurer {
-    function configureEntitlementClass(uint256 tokenId, bytes32 assetVersionId, uint32 cdrVaultUuid, bool active)
-        external;
+    function configureEntitlementClass(
+        uint256 tokenId,
+        bytes32 assetVersionId,
+        uint32 cdrVaultUuid,
+        bool active
+    ) external;
 
     function transferOwnership(address newOwner) external;
 }
@@ -48,10 +52,12 @@ contract PurchaseEntitlementClassConfigurer {
         emit ClassConfigurerUpdated(configurer, active);
     }
 
-    function configureEntitlementClass(uint256 tokenId, bytes32 assetVersionId, uint32 cdrVaultUuid, bool active)
-        external
-        onlyClassConfigurer
-    {
+    function configureEntitlementClass(
+        uint256 tokenId,
+        bytes32 assetVersionId,
+        uint32 cdrVaultUuid,
+        bool active
+    ) external onlyClassConfigurer {
         entitlementToken.configureEntitlementClass(tokenId, assetVersionId, cdrVaultUuid, active);
     }
 
