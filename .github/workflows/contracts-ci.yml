@@ -28,3 +28,7 @@ jobs:
       - name: Run contract tests
         working-directory: story/delivery
         run: forge test
+
+      - name: Check contract formatting
+        working-directory: story/delivery
+        run: forge fmt --check

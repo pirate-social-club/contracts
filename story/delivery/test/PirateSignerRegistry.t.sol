@@ -33,11 +33,12 @@ contract PirateSignerRegistryTest {
     }
 
     function testRejectsUnauthorizedSignerUpdate() public {
-        (bool ok,) = address(stranger).call(
-            abi.encodeWithSelector(
-                RegistryActor.setSigner.selector, registry, address(stranger), true
-            )
-        );
+        (bool ok,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    RegistryActor.setSigner.selector, registry, address(stranger), true
+                )
+            );
         assert(!ok);
     }
 
@@ -45,16 +46,20 @@ contract PirateSignerRegistryTest {
         RegistryActor newOwner = new RegistryActor();
         registry.transferOwnership(address(newOwner));
 
-        (bool oldOwnerOk,) = address(this).call(
-            abi.encodeWithSelector(PirateSignerRegistry.setSigner.selector, address(stranger), true)
-        );
+        (bool oldOwnerOk,) = address(this)
+            .call(
+                abi.encodeWithSelector(
+                    PirateSignerRegistry.setSigner.selector, address(stranger), true
+                )
+            );
         assert(!oldOwnerOk);
 
-        (bool newOwnerOk,) = address(newOwner).call(
-            abi.encodeWithSelector(
-                RegistryActor.setSigner.selector, registry, address(stranger), true
-            )
-        );
+        (bool newOwnerOk,) = address(newOwner)
+            .call(
+                abi.encodeWithSelector(
+                    RegistryActor.setSigner.selector, registry, address(stranger), true
+                )
+            );
         assert(newOwnerOk);
         assert(registry.isActiveSigner(address(stranger)));
     }

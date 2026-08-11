@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 import {PurchaseEntitlementToken} from "../src/PurchaseEntitlementToken.sol";
 
 contract EntitlementActor {
-    function setSettlementMinter(PurchaseEntitlementToken token, address minter, bool active) external {
+    function setSettlementMinter(PurchaseEntitlementToken token, address minter, bool active)
+        external
+    {
         token.setSettlementMinter(minter, active);
     }
 
@@ -18,10 +20,12 @@ contract EntitlementActor {
         token.configureEntitlementClass(tokenId, assetVersionId, vaultUuid, active);
     }
 
-    function mintEntitlement(PurchaseEntitlementToken token, address to, uint256 tokenId, bytes32 purchaseRef)
-        external
-        returns (bool)
-    {
+    function mintEntitlement(
+        PurchaseEntitlementToken token,
+        address to,
+        uint256 tokenId,
+        bytes32 purchaseRef
+    ) external returns (bool) {
         return token.mintEntitlement(to, tokenId, purchaseRef);
     }
 
@@ -34,13 +38,19 @@ contract EntitlementActor {
         token.mintEntitlementBatch(recipients, tokenIds, purchaseRefs);
     }
 
-    function revokeEntitlement(PurchaseEntitlementToken token, address from, uint256 tokenId, uint8 reasonCode)
-        external
-    {
+    function revokeEntitlement(
+        PurchaseEntitlementToken token,
+        address from,
+        uint256 tokenId,
+        uint8 reasonCode
+    ) external {
         token.revokeEntitlement(from, tokenId, reasonCode);
     }
 
-    function setApprovalForAll(PurchaseEntitlementToken token, address operator, bool approved) external pure {
+    function setApprovalForAll(PurchaseEntitlementToken token, address operator, bool approved)
+        external
+        pure
+    {
         token.setApprovalForAll(operator, approved);
     }
 
@@ -82,7 +92,8 @@ contract PurchaseEntitlementTokenTest {
 
         assert(token.isSettlementMinter(address(settlementMinter)));
 
-        (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) = token.entitlementClasses(TOKEN_ID);
+        (bytes32 assetVersionId, uint32 vaultUuid, bool active, bool exists) =
+            token.entitlementClasses(TOKEN_ID);
         assert(assetVersionId == ASSET_VERSION_ID);
         assert(vaultUuid == VAULT_UUID);
         assert(active);
@@ -93,8 +104,10 @@ contract PurchaseEntitlementTokenTest {
         token.setSettlementMinter(address(settlementMinter), true);
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
 
-        bool minted = settlementMinter.mintEntitlement(token, address(buyer), TOKEN_ID, PURCHASE_REF);
-        bool mintedAgain = settlementMinter.mintEntitlement(token, address(buyer), TOKEN_ID, PURCHASE_REF);
+        bool minted =
+            settlementMinter.mintEntitlement(token, address(buyer), TOKEN_ID, PURCHASE_REF);
+        bool mintedAgain =
+            settlementMinter.mintEntitlement(token, address(buyer), TOKEN_ID, PURCHASE_REF);
 
         assert(minted);
         assert(!mintedAgain);
@@ -104,7 +117,9 @@ contract PurchaseEntitlementTokenTest {
     function testSettlementMinterCanBatchMint() public {
         token.setSettlementMinter(address(settlementMinter), true);
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
-        token.configureEntitlementClass(TOKEN_ID + 1, keccak256("asset-version-2"), VAULT_UUID + 1, true);
+        token.configureEntitlementClass(
+            TOKEN_ID + 1, keccak256("asset-version-2"), VAULT_UUID + 1, true
+        );
 
         address[] memory recipients = new address[](2);
         uint256[] memory tokenIds = new uint256[](2);
@@ -124,45 +139,61 @@ contract PurchaseEntitlementTokenTest {
     }
 
     function testUnauthorizedActorsCannotConfigureOrMint() public {
-        (bool configureOk,) = address(stranger).call(
-            abi.encodeWithSelector(
-                EntitlementActor.configureEntitlementClass.selector,
-                token,
-                TOKEN_ID,
-                ASSET_VERSION_ID,
-                VAULT_UUID,
-                true
-            )
-        );
+        (bool configureOk,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.configureEntitlementClass.selector,
+                    token,
+                    TOKEN_ID,
+                    ASSET_VERSION_ID,
+                    VAULT_UUID,
+                    true
+                )
+            );
         assert(!configureOk);
 
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
 
-        (bool mintOk,) = address(stranger).call(
-            abi.encodeWithSelector(
-                EntitlementActor.mintEntitlement.selector, token, address(buyer), TOKEN_ID, PURCHASE_REF
-            )
-        );
+        (bool mintOk,) = address(stranger)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.mintEntitlement.selector,
+                    token,
+                    address(buyer),
+                    TOKEN_ID,
+                    PURCHASE_REF
+                )
+            );
         assert(!mintOk);
     }
 
     function testRejectsMintForInactiveOrUnknownClass() public {
         token.setSettlementMinter(address(settlementMinter), true);
 
-        (bool unknownOk,) = address(settlementMinter).call(
-            abi.encodeWithSelector(
-                EntitlementActor.mintEntitlement.selector, token, address(buyer), TOKEN_ID, PURCHASE_REF
-            )
-        );
+        (bool unknownOk,) = address(settlementMinter)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.mintEntitlement.selector,
+                    token,
+                    address(buyer),
+                    TOKEN_ID,
+                    PURCHASE_REF
+                )
+            );
         assert(!unknownOk);
 
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, false);
 
-        (bool inactiveOk,) = address(settlementMinter).call(
-            abi.encodeWithSelector(
-                EntitlementActor.mintEntitlement.selector, token, address(buyer), TOKEN_ID, PURCHASE_REF
-            )
-        );
+        (bool inactiveOk,) = address(settlementMinter)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.mintEntitlement.selector,
+                    token,
+                    address(buyer),
+                    TOKEN_ID,
+                    PURCHASE_REF
+                )
+            );
         assert(!inactiveOk);
     }
 
@@ -180,24 +211,26 @@ contract PurchaseEntitlementTokenTest {
     }
 
     function testRejectsTransfersAndApprovals() public {
-        (bool approvalOk,) = address(buyer).call(
-            abi.encodeWithSelector(
-                EntitlementActor.setApprovalForAll.selector, token, address(stranger), true
-            )
-        );
+        (bool approvalOk,) = address(buyer)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.setApprovalForAll.selector, token, address(stranger), true
+                )
+            );
         assert(!approvalOk);
 
-        (bool transferOk,) = address(buyer).call(
-            abi.encodeWithSelector(
-                EntitlementActor.safeTransferFrom.selector,
-                token,
-                address(buyer),
-                address(stranger),
-                TOKEN_ID,
-                1,
-                bytes("")
-            )
-        );
+        (bool transferOk,) = address(buyer)
+            .call(
+                abi.encodeWithSelector(
+                    EntitlementActor.safeTransferFrom.selector,
+                    token,
+                    address(buyer),
+                    address(stranger),
+                    TOKEN_ID,
+                    1,
+                    bytes("")
+                )
+            );
         assert(!transferOk);
     }
 
@@ -205,18 +238,19 @@ contract PurchaseEntitlementTokenTest {
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, true);
         token.configureEntitlementClass(TOKEN_ID, ASSET_VERSION_ID, VAULT_UUID, false);
 
-        (, , bool active,) = token.entitlementClasses(TOKEN_ID);
+        (,, bool active,) = token.entitlementClasses(TOKEN_ID);
         assert(!active);
 
-        (bool ok,) = address(this).call(
-            abi.encodeWithSelector(
-                PurchaseEntitlementToken.configureEntitlementClass.selector,
-                TOKEN_ID,
-                keccak256("different-asset-version"),
-                VAULT_UUID,
-                true
-            )
-        );
+        (bool ok,) = address(this)
+            .call(
+                abi.encodeWithSelector(
+                    PurchaseEntitlementToken.configureEntitlementClass.selector,
+                    TOKEN_ID,
+                    keccak256("different-asset-version"),
+                    VAULT_UUID,
+                    true
+                )
+            );
         assert(!ok);
     }
 }

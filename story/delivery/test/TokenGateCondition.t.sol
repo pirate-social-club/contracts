@@ -5,17 +5,20 @@ import {PurchaseEntitlementToken} from "../src/PurchaseEntitlementToken.sol";
 import {TokenGateCondition} from "../src/TokenGateCondition.sol";
 
 contract TokenGateActor {
-    function mintEntitlement(PurchaseEntitlementToken token, address to, uint256 tokenId, bytes32 purchaseRef)
-        external
-    {
+    function mintEntitlement(
+        PurchaseEntitlementToken token,
+        address to,
+        uint256 tokenId,
+        bytes32 purchaseRef
+    ) external {
         token.mintEntitlement(to, tokenId, purchaseRef);
     }
 
-    function checkReadCondition(TokenGateCondition condition, address caller, bytes calldata conditionData)
-        external
-        view
-        returns (bool)
-    {
+    function checkReadCondition(
+        TokenGateCondition condition,
+        address caller,
+        bytes calldata conditionData
+    ) external view returns (bool) {
         return condition.checkReadCondition(caller, conditionData, "0x");
     }
 }
@@ -72,24 +75,26 @@ contract TokenGateConditionTest {
     }
 
     function testRejectsZeroTokenAddressAndZeroMinBalance() public {
-        (bool zeroTokenOk,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                address(buyer),
-                abi.encode(address(0), TOKEN_ID, uint256(1)),
-                "0x"
-            )
-        );
+        (bool zeroTokenOk,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    address(buyer),
+                    abi.encode(address(0), TOKEN_ID, uint256(1)),
+                    "0x"
+                )
+            );
         assert(!zeroTokenOk);
 
-        (bool zeroMinBalanceOk,) = address(condition).call(
-            abi.encodeWithSelector(
-                CHECK_READ_SELECTOR,
-                address(buyer),
-                abi.encode(address(token), TOKEN_ID, uint256(0)),
-                "0x"
-            )
-        );
+        (bool zeroMinBalanceOk,) = address(condition)
+            .call(
+                abi.encodeWithSelector(
+                    CHECK_READ_SELECTOR,
+                    address(buyer),
+                    abi.encode(address(token), TOKEN_ID, uint256(0)),
+                    "0x"
+                )
+            );
         assert(!zeroMinBalanceOk);
     }
 }

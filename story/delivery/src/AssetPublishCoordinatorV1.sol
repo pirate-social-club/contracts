@@ -69,7 +69,9 @@ contract AssetPublishCoordinatorV1 {
     modifier onlyPublisherOrOperator(bytes32 assetVersionId) {
         PublishedAssetVersion storage published = publishedAssetVersions[assetVersionId];
         if (!published.exists) revert AssetVersionNotFound();
-        if (msg.sender != published.publisher && !isPublishOperator[msg.sender]) revert Unauthorized();
+        if (msg.sender != published.publisher && !isPublishOperator[msg.sender]) {
+            revert Unauthorized();
+        }
         _;
     }
 
@@ -103,7 +105,8 @@ contract AssetPublishCoordinatorV1 {
         address readCondition,
         address writeCondition
     ) external onlyPublishOperator {
-        if (publisher == address(0) || readCondition == address(0) || writeCondition == address(0)) {
+        if (publisher == address(0) || readCondition == address(0) || writeCondition == address(0))
+        {
             revert ZeroAddress();
         }
         if (assetVersionId == bytes32(0)) revert InvalidAssetVersionId();
@@ -142,16 +145,20 @@ contract AssetPublishCoordinatorV1 {
         );
     }
 
-    function setAssetVersionActive(bytes32 assetVersionId, bool active) external onlyPublisherOrOperator(assetVersionId) {
+    function setAssetVersionActive(bytes32 assetVersionId, bool active)
+        external
+        onlyPublisherOrOperator(assetVersionId)
+    {
         PublishedAssetVersion storage published = publishedAssetVersions[assetVersionId];
         published.active = active;
         emit AssetVersionActiveUpdated(assetVersionId, active);
     }
 
-    function _requireMatchingEntitlementClass(uint256 entitlementTokenId, bytes32 assetVersionId, uint32 cdrVaultUuid)
-        internal
-        view
-    {
+    function _requireMatchingEntitlementClass(
+        uint256 entitlementTokenId,
+        bytes32 assetVersionId,
+        uint32 cdrVaultUuid
+    ) internal view {
         (bytes32 classAssetVersionId, uint32 classVaultUuid,, bool exists) =
             entitlementToken.entitlementClasses(entitlementTokenId);
 
