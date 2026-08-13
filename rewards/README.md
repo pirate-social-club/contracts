@@ -33,3 +33,44 @@ Sepolia validation must include both the happy path and negative paths for
 recipient/drawing binding, cutoff margin, price ceiling, per-purchase and daily
 caps, operation replay, and the claim module's refusal of NFT transfers and
 arbitrary calls. Never print private keys in the runbook.
+
+## Deployment
+
+`script/DeployRewardTicketPoolControls.s.sol` deploys the escrow, registry, and
+claim module with all three contracts paused. It does not enable the claim
+module or execute any Safe transaction. Use a reviewed signer or hardware-wallet
+flow; do not place private keys in this repository or in chat.
+
+For the first Base Sepolia rehearsal, re-read the Megapot getters immediately
+before choosing the ceiling. A conservative observed policy was:
+
+```text
+REWARD_TICKET_MAX_PRICE_ATOMIC=10000
+REWARD_TICKET_MAX_PURCHASE_COST_ATOMIC=100000
+REWARD_TICKET_DAILY_CAP_ATOMIC=200000
+REWARD_TICKET_CUTOFF_MARGIN_SECONDS=300
+REWARD_TICKET_MAX_TICKETS_PER_PURCHASE=10
+REWARD_TICKET_MAX_TICKETS_PER_CLAIM=10
+```
+
+Example environment names:
+
+```text
+REWARD_TICKET_USDC_ADDRESS=0x...
+REWARD_TICKET_JACKPOT_ADDRESS=0x...
+REWARD_TICKET_RANDOM_BUYER_ADDRESS=0x...
+REWARD_TICKET_CUSTODY_SAFE_ADDRESS=0x...
+REWARD_TICKET_PLATFORM_REVENUE_ADDRESS=0x...
+REWARD_TICKET_PURCHASE_OPERATOR_ADDRESS=0x...
+```
+
+Run only after reviewing the constructor values and signer mode:
+
+```bash
+rtk forge script script/DeployRewardTicketPoolControls.s.sol:DeployRewardTicketPoolControls \
+  --rpc-url "$RPC_URL" --private-key "$DEPLOYER_PRIVATE_KEY" --broadcast
+```
+
+Record each deployment transaction, block, address, constructor arguments,
+runtime code, and runtime-code hash. Keep the contracts paused until those
+checks pass and the Safe separately approves its control calls.
