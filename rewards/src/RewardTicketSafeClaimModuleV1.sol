@@ -55,7 +55,12 @@ contract RewardTicketSafeClaimModuleV1 {
         _;
     }
 
-    constructor(address safe_, address jackpot_, address claimOperator_, uint256 maxTicketsPerClaim_) {
+    constructor(
+        address safe_,
+        address jackpot_,
+        address claimOperator_,
+        uint256 maxTicketsPerClaim_
+    ) {
         if (safe_ == address(0) || jackpot_ == address(0) || claimOperator_ == address(0)) {
             revert ZeroAddress();
         }
@@ -88,14 +93,18 @@ contract RewardTicketSafeClaimModuleV1 {
         if (paused) revert ClaimPaused();
         if (operationId == bytes32(0)) revert InvalidOperation();
         if (usedOperations[operationId]) revert OperationAlreadyUsed();
-        if (ticketIds.length == 0 || ticketIds.length > maxTicketsPerClaim) revert InvalidTicketBatch();
+        if (ticketIds.length == 0 || ticketIds.length > maxTicketsPerClaim) {
+            revert InvalidTicketBatch();
+        }
         _assertUnique(ticketIds);
 
         usedOperations[operationId] = true;
         bytes memory data = abi.encodeCall(IRewardTicketJackpotClaim.claimWinnings, (ticketIds));
         bool success = IRewardTicketSafeModule(safe).execTransactionFromModule(jackpot, 0, data, 0);
         if (!success) revert SafeExecutionFailed();
-        emit ClaimSubmitted(operationId, keccak256(abi.encode(ticketIds)), ticketIds.length, msg.sender);
+        emit ClaimSubmitted(
+            operationId, keccak256(abi.encode(ticketIds)), ticketIds.length, msg.sender
+        );
         return true;
     }
 

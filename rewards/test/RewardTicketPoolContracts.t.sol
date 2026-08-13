@@ -29,7 +29,10 @@ contract MockRewardUsdc {
         return true;
     }
 
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount)
+        external
+        returns (bool)
+    {
         require(balanceOf[sender] >= amount, "balance");
         require(allowance[sender][msg.sender] >= amount, "allowance");
         allowance[sender][msg.sender] -= amount;
@@ -79,21 +82,7 @@ contract MockRewardJackpot {
             bool jackpotLock_
         )
     {
-        return (
-            0,
-            ticketPrice,
-            0,
-            0,
-            0,
-            0,
-            0,
-            drawingTime,
-            0,
-            0,
-            0,
-            address(0),
-            jackpotLock
-        );
+        return (0, ticketPrice, 0, 0, 0, 0, 0, drawingTime, 0, 0, 0, address(0), jackpotLock);
     }
 }
 
@@ -128,7 +117,9 @@ contract MockRewardBuyer {
         usdc.transferFrom(msg.sender, address(this), cost);
         received += cost;
         ticketIds = new uint256[](count);
-        for (uint256 i = 0; i < count; i++) ticketIds[i] = _nextTicket++;
+        for (uint256 i = 0; i < count; i++) {
+            ticketIds[i] = _nextTicket++;
+        }
     }
 }
 
@@ -160,7 +151,9 @@ contract MockRewardClaimJackpot {
     function claimWinnings(uint256[] calldata ticketIds) external {
         lastCaller = msg.sender;
         delete lastTicketIds;
-        for (uint256 i = 0; i < ticketIds.length; i++) lastTicketIds.push(ticketIds[i]);
+        for (uint256 i = 0; i < ticketIds.length; i++) {
+            lastTicketIds.push(ticketIds[i]);
+        }
     }
 }
 
@@ -252,61 +245,65 @@ contract RewardTicketPoolContractsTest {
         bytes32 source = keccak256("source-2");
         operator.purchase(escrow, operationId, 1, 7, 1e6, source);
 
-        (bool replayOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.purchase.selector,
-                escrow,
-                operationId,
-                1,
-                7,
-                1e6,
-                source
-            )
-        );
+        (bool replayOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    operationId,
+                    1,
+                    7,
+                    1e6,
+                    source
+                )
+            );
         assert(!replayOk);
 
         jackpot.setState(true, 8, 1e6, block.timestamp + 1 days, false);
-        (bool mismatchOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.purchase.selector,
-                escrow,
-                keccak256("purchase-3"),
-                1,
-                7,
-                1e6,
-                keccak256("source-3")
-            )
-        );
+        (bool mismatchOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("purchase-3"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("source-3")
+                )
+            );
         assert(!mismatchOk);
     }
 
     function testEscrowRejectsPriceAndCutoffViolations() public {
         jackpot.setState(true, 7, 3e6, block.timestamp + 1 days, false);
-        (bool expensiveOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.purchase.selector,
-                escrow,
-                keccak256("purchase-4"),
-                1,
-                7,
-                3e6,
-                keccak256("source-4")
-            )
-        );
+        (bool expensiveOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("purchase-4"),
+                    1,
+                    7,
+                    3e6,
+                    keccak256("source-4")
+                )
+            );
         assert(!expensiveOk);
 
         jackpot.setState(true, 7, 1e6, block.timestamp + 30, false);
-        (bool cutoffOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.purchase.selector,
-                escrow,
-                keccak256("purchase-5"),
-                1,
-                7,
-                1e6,
-                keccak256("source-5")
-            )
-        );
+        (bool cutoffOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("purchase-5"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("source-5")
+                )
+            );
         assert(!cutoffOk);
     }
 
@@ -327,17 +324,18 @@ contract RewardTicketPoolContractsTest {
         assert(stored.publisher == address(operator));
         assert(registry.isPublished(address(jackpot), 7));
 
-        (bool duplicateOk,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.publish.selector,
-                registry,
-                address(jackpot),
-                7,
-                root,
-                3,
-                terms
-            )
-        );
+        (bool duplicateOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.publish.selector,
+                    registry,
+                    address(jackpot),
+                    7,
+                    root,
+                    3,
+                    terms
+                )
+            );
         assert(!duplicateOk);
     }
 
@@ -370,11 +368,15 @@ contract RewardTicketPoolContractsTest {
         uint256[] memory ticketIds = new uint256[](2);
         ticketIds[0] = 41;
         ticketIds[1] = 41;
-        (bool ok,) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.claim.selector, module, keccak256("claim-2"), ticketIds
-            )
-        );
+        (bool ok,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector,
+                    module,
+                    keccak256("claim-2"),
+                    ticketIds
+                )
+            );
         assert(!ok);
     }
 }

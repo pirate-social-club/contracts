@@ -10,21 +10,24 @@ interface IRewardTicketJackpot {
     function allowTicketPurchases() external view returns (bool);
     function currentDrawingId() external view returns (uint256);
     function ticketPrice() external view returns (uint256);
-    function getDrawingState(uint256 drawingId) external view returns (
-        uint256 prizePool,
-        uint256 ticketPrice,
-        uint256 edgePerTicket,
-        uint256 referralWinShare,
-        uint256 referralFee,
-        uint256 globalTicketsBought,
-        uint256 lpEarnings,
-        uint256 drawingTime,
-        uint256 winningTicket,
-        uint8 ballMax,
-        uint8 bonusballMax,
-        address payoutCalculator,
-        bool jackpotLock
-    );
+    function getDrawingState(uint256 drawingId)
+        external
+        view
+        returns (
+            uint256 prizePool,
+            uint256 ticketPrice,
+            uint256 edgePerTicket,
+            uint256 referralWinShare,
+            uint256 referralFee,
+            uint256 globalTicketsBought,
+            uint256 lpEarnings,
+            uint256 drawingTime,
+            uint256 winningTicket,
+            uint8 ballMax,
+            uint8 bonusballMax,
+            address payoutCalculator,
+            bool jackpotLock
+        );
 }
 
 interface IRewardTicketRandomBuyer {
@@ -174,8 +177,8 @@ contract RewardTicketPurchaseEscrowV1 {
 
     function setPurchaseOperator(address newOperator) external onlyOwner {
         if (
-            newOperator == address(0) || newOperator == custodySafe || newOperator == platformRevenue
-                || newOperator == policyOwner
+            newOperator == address(0) || newOperator == custodySafe
+                || newOperator == platformRevenue || newOperator == policyOwner
         ) revert InvalidPolicy();
         address previous = purchaseOperator;
         purchaseOperator = newOperator;
@@ -235,7 +238,10 @@ contract RewardTicketPurchaseEscrowV1 {
             revert TicketPriceMismatch();
         }
         if (livePrice > maxTicketPriceAtomic) revert TicketPriceAboveCeiling();
-        if (drawingTime <= block.timestamp || block.timestamp + purchaseSafetyMarginSeconds >= drawingTime) {
+        if (
+            drawingTime <= block.timestamp
+                || block.timestamp + purchaseSafetyMarginSeconds >= drawingTime
+        ) {
             revert DrawingCutoffSafetyMargin();
         }
 
@@ -243,7 +249,10 @@ contract RewardTicketPurchaseEscrowV1 {
         uint256 cost = livePrice * count;
         if (cost > maxPurchaseCostAtomic) revert CostAbovePerPurchaseCap();
         uint256 day = block.timestamp / 1 days;
-        if (spentByDay[day] > dailyPurchaseCapAtomic || cost > dailyPurchaseCapAtomic - spentByDay[day]) {
+        if (
+            spentByDay[day] > dailyPurchaseCapAtomic
+                || cost > dailyPurchaseCapAtomic - spentByDay[day]
+        ) {
             revert DailyCapExceeded();
         }
 
@@ -254,9 +263,10 @@ contract RewardTicketPurchaseEscrowV1 {
         referrers[0] = platformRevenue;
         uint256[] memory referralSplitWeights = new uint256[](1);
         referralSplitWeights[0] = REFERRAL_WEIGHT_SCALE;
-        try IRewardTicketRandomBuyer(randomTicketBuyer).buyTickets(
-            count, custodySafe, referrers, referralSplitWeights, source
-        ) returns (uint256[] memory returnedTicketIds) {
+        try IRewardTicketRandomBuyer(randomTicketBuyer)
+            .buyTickets(count, custodySafe, referrers, referralSplitWeights, source) returns (
+            uint256[] memory returnedTicketIds
+        ) {
             ticketIds = returnedTicketIds;
         } catch {
             revert BuyerCallFailed();

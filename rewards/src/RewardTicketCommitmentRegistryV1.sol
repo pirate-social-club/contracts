@@ -95,7 +95,14 @@ contract RewardTicketCommitmentRegistryV1 {
             publisher: msg.sender
         });
         emit CommitmentPublished(
-            jackpot, drawingId, rootHash, leafCount, termsVersionHash, publishedAt, block.chainid, msg.sender
+            jackpot,
+            drawingId,
+            rootHash,
+            leafCount,
+            termsVersionHash,
+            publishedAt,
+            block.chainid,
+            msg.sender
         );
     }
 
