@@ -8,6 +8,13 @@ interface IRewardTicketSafeModule {
         bytes calldata data,
         uint8 operation
     ) external returns (bool success);
+
+    function execTransactionFromModuleReturnData(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8 operation
+    ) external returns (bool success, bytes memory returnData);
 }
 
 interface IRewardTicketJackpotClaim {
@@ -100,8 +107,16 @@ contract RewardTicketSafeClaimModuleV1 {
 
         usedOperations[operationId] = true;
         bytes memory data = abi.encodeCall(IRewardTicketJackpotClaim.claimWinnings, (ticketIds));
-        bool success = IRewardTicketSafeModule(safe).execTransactionFromModule(jackpot, 0, data, 0);
-        if (!success) revert SafeExecutionFailed();
+        (bool success, bytes memory returnData) =
+            IRewardTicketSafeModule(safe).execTransactionFromModuleReturnData(jackpot, 0, data, 0);
+        if (!success) {
+            if (returnData.length > 0) {
+                assembly {
+                    revert(add(returnData, 32), mload(returnData))
+                }
+            }
+            revert SafeExecutionFailed();
+        }
         emit ClaimSubmitted(
             operationId, keccak256(abi.encode(ticketIds)), ticketIds.length, msg.sender
         );

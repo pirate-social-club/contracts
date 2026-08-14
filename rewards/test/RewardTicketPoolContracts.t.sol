@@ -142,6 +142,14 @@ contract MockRewardSafe {
         require(msg.sender == allowedModule, "module");
         (success,) = to.call{value: value}(data);
     }
+
+    function execTransactionFromModuleReturnData(address to, uint256 value, bytes calldata data, uint8)
+        external
+        returns (bool success, bytes memory returnData)
+    {
+        require(msg.sender == allowedModule, "module");
+        (success, returnData) = to.call{value: value}(data);
+    }
 }
 
 contract MockRewardClaimJackpot {
@@ -154,6 +162,14 @@ contract MockRewardClaimJackpot {
         for (uint256 i = 0; i < ticketIds.length; i++) {
             lastTicketIds.push(ticketIds[i]);
         }
+    }
+}
+
+contract MockRevertingClaimJackpot {
+    error NoTicketsToClaim();
+
+    function claimWinnings(uint256[] calldata) external pure {
+        revert NoTicketsToClaim();
     }
 }
 
@@ -378,5 +394,26 @@ contract RewardTicketPoolContractsTest {
                 )
             );
         assert(!ok);
+    }
+
+    function testSafeClaimModuleBubblesMegapotNoTicketsToClaim() public {
+        MockRevertingClaimJackpot claimJackpot = new MockRevertingClaimJackpot();
+        RewardTicketSafeClaimModuleV1 module = new RewardTicketSafeClaimModuleV1(
+            address(safe), address(claimJackpot), address(operator), 10
+        );
+        safe.setAllowedModule(address(module));
+        safe.callTarget(address(module), abi.encodeCall(module.setPaused, (false)));
+        uint256[] memory ticketIds = new uint256[](1);
+        ticketIds[0] = 99;
+        (bool ok, bytes memory returnData) = address(operator).call(
+            abi.encodeWithSelector(
+                RewardTicketOperatorActor.claim.selector,
+                module,
+                keccak256("claim-no-win"),
+                ticketIds
+            )
+        );
+        assert(!ok);
+        assert(bytes4(returnData) == MockRevertingClaimJackpot.NoTicketsToClaim.selector);
     }
 }
