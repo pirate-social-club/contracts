@@ -94,11 +94,16 @@ contract MockRewardBuyer {
     uint256 public lastWeight;
     bytes32 public lastSource;
     uint256 public received;
+    bool public shouldRevert;
     uint256 private _nextTicket = 100;
 
     constructor(MockRewardUsdc usdc_, MockRewardJackpot jackpot_) {
         usdc = usdc_;
         jackpot = jackpot_;
+    }
+
+    function setShouldRevert(bool shouldRevert_) external {
+        shouldRevert = shouldRevert_;
     }
 
     function buyTickets(
@@ -108,6 +113,7 @@ contract MockRewardBuyer {
         uint256[] calldata referralSplitWeights,
         bytes32 source
     ) external returns (uint256[] memory ticketIds) {
+        require(!shouldRevert, "buyer-revert");
         require(referrers.length == 1 && referralSplitWeights.length == 1, "referrals");
         lastRecipient = recipient;
         lastReferrer = referrers[0];
@@ -143,10 +149,12 @@ contract MockRewardSafe {
         (success,) = to.call{value: value}(data);
     }
 
-    function execTransactionFromModuleReturnData(address to, uint256 value, bytes calldata data, uint8)
-        external
-        returns (bool success, bytes memory returnData)
-    {
+    function execTransactionFromModuleReturnData(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8
+    ) external returns (bool success, bytes memory returnData) {
         require(msg.sender == allowedModule, "module");
         (success, returnData) = to.call{value: value}(data);
     }
@@ -323,6 +331,172 @@ contract RewardTicketPoolContractsTest {
         assert(!cutoffOk);
     }
 
+    function testControlsStartPausedAndRejectUnauthorizedUnpause() public {
+        RewardTicketPurchaseEscrowV1 freshEscrow = new RewardTicketPurchaseEscrowV1(
+            address(usdc),
+            address(jackpot),
+            address(buyer),
+            address(safe),
+            address(revenue),
+            address(safe),
+            address(operator),
+            2e6,
+            10e6,
+            20e6,
+            60,
+            10
+        );
+        RewardTicketCommitmentRegistryV1 registry =
+            new RewardTicketCommitmentRegistryV1(address(safe), address(operator));
+        MockRewardClaimJackpot claimJackpot = new MockRewardClaimJackpot();
+        RewardTicketSafeClaimModuleV1 module = new RewardTicketSafeClaimModuleV1(
+            address(safe), address(claimJackpot), address(operator), 10
+        );
+
+        assert(freshEscrow.paused());
+        assert(registry.paused());
+        assert(module.paused());
+
+        (bool escrowOk,) = address(freshEscrow).call(abi.encodeCall(freshEscrow.setPaused, (false)));
+        (bool registryOk,) = address(registry).call(abi.encodeCall(registry.setPaused, (false)));
+        (bool moduleOk,) = address(module).call(abi.encodeCall(module.setPaused, (false)));
+        assert(!escrowOk);
+        assert(!registryOk);
+        assert(!moduleOk);
+    }
+
+    function testEscrowEnforcesPurchaseAndDailyCapsThenResetsNextDay() public {
+        operator.purchase(escrow, keccak256("cap-1"), 10, 7, 1e6, keccak256("cap-source-1"));
+        operator.purchase(escrow, keccak256("cap-2"), 10, 7, 1e6, keccak256("cap-source-2"));
+
+        (bool dailyCapOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("cap-3"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("cap-source-3")
+                )
+            );
+        (bool countOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("cap-4"),
+                    11,
+                    7,
+                    1e6,
+                    keccak256("cap-source-4")
+                )
+            );
+        assert(!dailyCapOk);
+        assert(!countOk);
+
+        uint256 nextDay = block.timestamp + 1 days;
+        vm.warp(nextDay);
+        jackpot.setState(true, 7, 1e6, nextDay + 1 days, false);
+        operator.purchase(escrow, keccak256("cap-5"), 1, 7, 1e6, keccak256("cap-source-5"));
+        assert(escrow.spentByDay(block.timestamp / 1 days) == 1e6);
+    }
+
+    function testEscrowRejectsDisabledAndLockedDrawings() public {
+        jackpot.setState(false, 7, 1e6, block.timestamp + 1 days, false);
+        (bool disabledOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("disabled"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("disabled-source")
+                )
+            );
+        assert(!disabledOk);
+
+        jackpot.setState(true, 7, 1e6, block.timestamp + 1 days, true);
+        (bool lockedOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("locked"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("locked-source")
+                )
+            );
+        assert(!lockedOk);
+    }
+
+    function testEscrowRotatesOperatorAndRecoversOnlyWhilePaused() public {
+        RewardTicketOperatorActor newOperator = new RewardTicketOperatorActor();
+        (bool unauthorizedOk,) =
+            address(escrow).call(abi.encodeCall(escrow.setPurchaseOperator, (address(newOperator))));
+        assert(!unauthorizedOk);
+
+        safe.callTarget(
+            address(escrow), abi.encodeCall(escrow.setPurchaseOperator, (address(newOperator)))
+        );
+        (bool oldOperatorOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    keccak256("old-operator"),
+                    1,
+                    7,
+                    1e6,
+                    keccak256("old-operator-source")
+                )
+            );
+        assert(!oldOperatorOk);
+        newOperator.purchase(
+            escrow, keccak256("new-operator"), 1, 7, 1e6, keccak256("new-operator-source")
+        );
+
+        (bool unpausedRecoveryOk,) = address(safe)
+            .call(
+                abi.encodeCall(
+                    safe.callTarget, (address(escrow), abi.encodeCall(escrow.withdrawUsdc, (1e6)))
+                )
+            );
+        assert(!unpausedRecoveryOk);
+        safe.callTarget(address(escrow), abi.encodeCall(escrow.setPaused, (true)));
+        safe.callTarget(address(escrow), abi.encodeCall(escrow.withdrawUsdc, (1e6)));
+        assert(usdc.balanceOf(address(safe)) == 1e6);
+    }
+
+    function testEscrowFailedBuyerRollsBackReplayAndAllowance() public {
+        bytes32 operationId = keccak256("buyer-failure");
+        buyer.setShouldRevert(true);
+        (bool failedOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.purchase.selector,
+                    escrow,
+                    operationId,
+                    1,
+                    7,
+                    1e6,
+                    keccak256("buyer-failure-source")
+                )
+            );
+        assert(!failedOk);
+        assert(!escrow.usedOperations(operationId));
+        assert(usdc.allowance(address(escrow), address(buyer)) == 0);
+
+        buyer.setShouldRevert(false);
+        operator.purchase(escrow, operationId, 1, 7, 1e6, keccak256("buyer-failure-source"));
+        assert(escrow.usedOperations(operationId));
+    }
+
     function testRegistryPublishesOneImmutableRoot() public {
         RewardTicketCommitmentRegistryV1 registry =
             new RewardTicketCommitmentRegistryV1(address(safe), address(operator));
@@ -353,6 +527,46 @@ contract RewardTicketPoolContractsTest {
                 )
             );
         assert(!duplicateOk);
+    }
+
+    function testRegistryEnforcesPauseAndPublisherRotation() public {
+        RewardTicketCommitmentRegistryV1 registry =
+            new RewardTicketCommitmentRegistryV1(address(safe), address(operator));
+        bytes32 root = keccak256("rotated-root");
+        bytes32 terms = keccak256("rotated-terms");
+        (bool pausedOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.publish.selector,
+                    registry,
+                    address(jackpot),
+                    8,
+                    root,
+                    1,
+                    terms
+                )
+            );
+        assert(!pausedOk);
+
+        safe.callTarget(address(registry), abi.encodeCall(registry.setPaused, (false)));
+        safe.callTarget(
+            address(registry), abi.encodeCall(registry.setPublisher, (address(revenue)))
+        );
+        (bool previousPublisherOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.publish.selector,
+                    registry,
+                    address(jackpot),
+                    8,
+                    root,
+                    1,
+                    terms
+                )
+            );
+        assert(!previousPublisherOk);
+        revenue.publish(registry, address(jackpot), 8, root, 1, terms);
+        assert(registry.isPublished(address(jackpot), 8));
     }
 
     function testSafeClaimModuleMakesSafeTheMegapotCaller() public {
@@ -405,15 +619,78 @@ contract RewardTicketPoolContractsTest {
         safe.callTarget(address(module), abi.encodeCall(module.setPaused, (false)));
         uint256[] memory ticketIds = new uint256[](1);
         ticketIds[0] = 99;
-        (bool ok, bytes memory returnData) = address(operator).call(
-            abi.encodeWithSelector(
-                RewardTicketOperatorActor.claim.selector,
-                module,
-                keccak256("claim-no-win"),
-                ticketIds
-            )
-        );
+        (bool ok, bytes memory returnData) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector,
+                    module,
+                    keccak256("claim-no-win"),
+                    ticketIds
+                )
+            );
         assert(!ok);
         assert(bytes4(returnData) == MockRevertingClaimJackpot.NoTicketsToClaim.selector);
+        assert(!module.usedOperations(keccak256("claim-no-win")));
+    }
+
+    function testSafeClaimModuleEnforcesPauseRotationReplayAndBatchBounds() public {
+        MockRewardClaimJackpot claimJackpot = new MockRewardClaimJackpot();
+        RewardTicketSafeClaimModuleV1 module = new RewardTicketSafeClaimModuleV1(
+            address(safe), address(claimJackpot), address(operator), 2
+        );
+        safe.setAllowedModule(address(module));
+        uint256[] memory ticketIds = new uint256[](1);
+        ticketIds[0] = 77;
+
+        (bool pausedOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector,
+                    module,
+                    keccak256("paused-claim"),
+                    ticketIds
+                )
+            );
+        assert(!pausedOk);
+
+        safe.callTarget(address(module), abi.encodeCall(module.setPaused, (false)));
+        safe.callTarget(
+            address(module), abi.encodeCall(module.setClaimOperator, (address(revenue)))
+        );
+        (bool previousOperatorOk,) = address(operator)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector,
+                    module,
+                    keccak256("previous-claim-operator"),
+                    ticketIds
+                )
+            );
+        assert(!previousOperatorOk);
+
+        bytes32 operationId = keccak256("rotated-claim");
+        revenue.claim(module, operationId, ticketIds);
+        (bool replayOk,) = address(revenue)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector, module, operationId, ticketIds
+                )
+            );
+        assert(!replayOk);
+
+        uint256[] memory oversizedBatch = new uint256[](3);
+        oversizedBatch[0] = 1;
+        oversizedBatch[1] = 2;
+        oversizedBatch[2] = 3;
+        (bool oversizedOk,) = address(revenue)
+            .call(
+                abi.encodeWithSelector(
+                    RewardTicketOperatorActor.claim.selector,
+                    module,
+                    keccak256("oversized-claim"),
+                    oversizedBatch
+                )
+            );
+        assert(!oversizedOk);
     }
 }

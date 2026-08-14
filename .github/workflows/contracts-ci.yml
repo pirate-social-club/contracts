@@ -25,10 +25,18 @@ jobs:
       - name: Set up Foundry
         uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a
 
-      - name: Run contract tests
+      - name: Run Story contract tests
         working-directory: story/delivery
         run: forge test
 
-      - name: Check contract formatting
+      - name: Check Story contract formatting
         working-directory: story/delivery
+        run: forge fmt --check
+
+      - name: Run rewards contract tests
+        working-directory: rewards
+        run: forge test
+
+      - name: Check rewards contract formatting
+        working-directory: rewards
         run: forge fmt --check
