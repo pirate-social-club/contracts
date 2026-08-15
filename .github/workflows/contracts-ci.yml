@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       - name: Set up Foundry
         uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a
@@ -40,3 +42,77 @@ jobs:
       - name: Check rewards contract formatting
         working-directory: rewards
         run: forge fmt --check
+
+      - name: Verify Base Sepolia deployment provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="rewards/deployments/base-sepolia/2026-08-14.json"
+          source_commit="$(jq -r '.source.commit' "$manifest")"
+          test "$source_commit" != "null"
+          test "$(jq -r '.source.solc' "$manifest")" = "0.8.25"
+          test "$(jq -r '.source.optimizer' "$manifest")" = "true"
+          test "$(jq -r '.source.optimizerRuns' "$manifest")" = "200"
+          test "$(jq -r '.source.viaIr' "$manifest")" = "true"
+          python3 - "$manifest" "$source_commit" 6f812a8 60ee822 3e13ee7 c943e24 eaad355 1c9eb52 58a61a1 b58c96b 4d930b1 <<'PY'
+          import json, os, pathlib, subprocess, sys, tempfile
+
+          manifest_path, claimed_commit, *candidates = sys.argv[1:]
+          manifest = json.load(open(manifest_path))
+          contracts = {
+              "purchaseEscrow": ("RewardTicketPurchaseEscrowV1", manifest["contracts"]["purchaseEscrow"]["address"]),
+              "commitmentRegistry": ("RewardTicketCommitmentRegistryV1", manifest["contracts"]["commitmentRegistry"]["address"]),
+              "safeClaimModule": ("RewardTicketSafeClaimModuleV1", manifest["contracts"]["safeClaimModule"]["address"]),
+          }
+          rpc_url = "https://sepolia.base.org"
+
+          def keccak(code):
+              return subprocess.check_output(["cast", "keccak", code], text=True).strip().lower()
+
+          def strip_metadata(code):
+              raw = bytes.fromhex(code[2:])
+              if len(raw) < 2:
+                  return code
+              size = int.from_bytes(raw[-2:], "big")
+              if size + 2 > len(raw):
+                  return code
+              return "0x" + raw[:-(size + 2)].hex()
+
+          live = {}
+          for key, (_, address) in contracts.items():
+              code = subprocess.check_output(["cast", "code", address, "--rpc-url", rpc_url], text=True).strip()
+              live[key] = (keccak(code), keccak(strip_metadata(code)))
+              print(f"live {key}: full={live[key][0]} stripped={live[key][1]}")
+
+          matches = {key: False for key in contracts}
+          for commit in dict.fromkeys([claimed_commit] + candidates):
+              if subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], check=False).returncode != 0:
+                  print(f"candidate {commit}: object unavailable in CI checkout")
+                  continue
+              with tempfile.TemporaryDirectory() as tmp:
+                  root = pathlib.Path(tmp) / "source"
+                  root.mkdir()
+                  archive = subprocess.run(["git", "archive", commit], cwd=os.environ["GITHUB_WORKSPACE"], stdout=subprocess.PIPE, check=True).stdout
+                  subprocess.run(["tar", "-x", "-C", str(root)], input=archive, check=True)
+                  rewards = root / "rewards"
+                  if not rewards.is_dir():
+                      print(f"candidate {commit}: no rewards workspace")
+                      continue
+                  subprocess.run(["forge", "build", "--force"], cwd=rewards, check=True)
+                  print(f"candidate {commit}")
+                  for key, (contract, _) in contracts.items():
+                      files = list((rewards / "out").glob(f"*/{contract}.json"))
+                      if not files:
+                          print(f"  {key}: artifact missing")
+                          continue
+                      artifact = json.load(open(files[0]))
+                      code = artifact.get("deployedBytecode", {}).get("object") or artifact.get("deployedBytecode")
+                      full, bare = keccak(code), keccak(strip_metadata(code))
+                      matches[key] = matches[key] or (full == live[key][0] and bare == live[key][1])
+                      print(f"  {key}: full={full} ({'MATCH' if full == live[key][0] else 'different'}), stripped={bare} ({'MATCH' if bare == live[key][1] else 'different'})")
+          missing = [key for key, matched in matches.items() if not matched]
+          if missing:
+              print(f"::error::live deployment has no reviewed full-and-stripped match for: {', '.join(missing)}")
+              sys.exit(1)
+          print("all live deployments have reviewed full-and-stripped provenance")
+          PY
