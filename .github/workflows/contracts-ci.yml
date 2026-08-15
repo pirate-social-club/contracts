@@ -85,6 +85,9 @@ jobs:
               print(f"live {key}: full={live[key][0]} stripped={live[key][1]}")
 
           for commit in dict.fromkeys([claimed_commit] + candidates):
+              if subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], check=False).returncode != 0:
+                  print(f"candidate {commit}: object unavailable in CI checkout")
+                  continue
               with tempfile.TemporaryDirectory() as tmp:
                   root = pathlib.Path(tmp) / "source"
                   root.mkdir()
