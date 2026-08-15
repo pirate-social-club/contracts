@@ -84,6 +84,7 @@ jobs:
               live[key] = (keccak(code), keccak(strip_metadata(code)))
               print(f"live {key}: full={live[key][0]} stripped={live[key][1]}")
 
+          matches = {key: False for key in contracts}
           for commit in dict.fromkeys([claimed_commit] + candidates):
               if subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], check=False).returncode != 0:
                   print(f"candidate {commit}: object unavailable in CI checkout")
@@ -107,6 +108,11 @@ jobs:
                       artifact = json.load(open(files[0]))
                       code = artifact.get("deployedBytecode", {}).get("object") or artifact.get("deployedBytecode")
                       full, bare = keccak(code), keccak(strip_metadata(code))
+                      matches[key] = matches[key] or (full == live[key][0] and bare == live[key][1])
                       print(f"  {key}: full={full} ({'MATCH' if full == live[key][0] else 'different'}), stripped={bare} ({'MATCH' if bare == live[key][1] else 'different'})")
-          print("diagnosis complete; this step is informational until the deployment is reconciled")
+          missing = [key for key, matched in matches.items() if not matched]
+          if missing:
+              print(f"::error::live deployment has no reviewed full-and-stripped match for: {', '.join(missing)}")
+              sys.exit(1)
+          print("all live deployments have reviewed full-and-stripped provenance")
           PY
