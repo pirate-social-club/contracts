@@ -66,9 +66,12 @@ jobs:
               'RewardTicketCommitmentRegistryV1 commitmentRegistry' \
               'RewardTicketSafeClaimModuleV1 safeClaimModule'; do
               read -r contract key <<<"$spec"
-              artifact="out/${contract}.sol/${contract}.json"
-              bytecode="$(jq -r '.deployedBytecode.object' "$artifact")"
-              test "$bytecode" != "null"
+              artifact="$(find out -type f -path "*/${contract}.json" -print -quit)"
+              test -n "$artifact"
+              echo "Reading runtime artifact $artifact"
+              bytecode="$(jq -er '.deployedBytecode.object // .deployedBytecode' "$artifact")"
+              test "${bytecode#0x}" != "$bytecode"
+              echo "Runtime bytecode length: ${#bytecode}"
               actual="$(cast keccak "$bytecode")"
               expected="$(jq -r ".contracts.${key}.runtimeCodeHash" "$GITHUB_WORKSPACE/$manifest")"
               test "${actual,,}" = "${expected,,}"
