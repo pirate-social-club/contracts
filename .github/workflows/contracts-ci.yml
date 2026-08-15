@@ -54,7 +54,7 @@ jobs:
           test "$(jq -r '.source.optimizer' "$manifest")" = "true"
           test "$(jq -r '.source.optimizerRuns' "$manifest")" = "200"
           test "$(jq -r '.source.viaIr' "$manifest")" = "true"
-          python3 - "$manifest" "$source_commit" 6f812a8 60ee822 3e13ee7 eaad355 <<'PY'
+          python3 - "$manifest" "$source_commit" 6f812a8 60ee822 3e13ee7 c943e24 eaad355 1c9eb52 58a61a1 b58c96b 4d930b1 <<'PY'
           import json, os, pathlib, subprocess, sys, tempfile
 
           manifest_path, claimed_commit, *candidates = sys.argv[1:]
@@ -91,6 +91,9 @@ jobs:
                   archive = subprocess.run(["git", "archive", commit], cwd=os.environ["GITHUB_WORKSPACE"], stdout=subprocess.PIPE, check=True).stdout
                   subprocess.run(["tar", "-x", "-C", str(root)], input=archive, check=True)
                   rewards = root / "rewards"
+                  if not rewards.is_dir():
+                      print(f"candidate {commit}: no rewards workspace")
+                      continue
                   subprocess.run(["forge", "build", "--force"], cwd=rewards, check=True)
                   print(f"candidate {commit}")
                   for key, (contract, _) in contracts.items():
