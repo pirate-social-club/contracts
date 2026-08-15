@@ -8,12 +8,14 @@ This repository keeps the active contract code under a single root, with chain-f
 
 - `story/delivery/`
   - locked-asset purchase entitlement, settlement, and access-control contracts
+- `rewards/`
+  - Megapot ticket-pool escrow, commitment registry, and Safe claim controls
 
 ## Why Separate Workspaces
 
-The active contract area targets Story through its own Foundry workspace today.
-If v2 grows into a larger shared Story workspace later, that can happen intentionally
-instead of accumulating loose root folders.
+Story delivery and Megapot rewards are independent Foundry workspaces. Keep
+their build and deployment commands scoped to the owning directory so a Story
+delivery script cannot accidentally discover or deploy rewards controls.
 
 ## Non-Goals
 

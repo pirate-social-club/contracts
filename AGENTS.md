@@ -5,13 +5,20 @@ This file is for agents working inside the `contracts` repo.
 ## Layout
 
 - `story/delivery/` — locked-asset purchase entitlements, token-gated access, settlement, publish coordination
+- `rewards/` — Megapot ticket-pool purchase escrow, commitment publication registry, and Safe claim module
 
-The active Story contract surface is currently a single Foundry workspace.
+The repo has two independent Foundry workspaces. Run validation and deployment
+from the owning workspace; Story delivery scripts must not glob or deploy the
+contracts under `rewards/`.
 
 ## Validation
 
 ```bash
 cd story/delivery
+rtk forge build
+rtk forge test
+
+cd ../../rewards
 rtk forge build
 rtk forge test
 ```
