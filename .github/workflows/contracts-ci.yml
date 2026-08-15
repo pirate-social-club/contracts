@@ -66,7 +66,10 @@ jobs:
               'RewardTicketCommitmentRegistryV1 commitmentRegistry' \
               'RewardTicketSafeClaimModuleV1 safeClaimModule'; do
               read -r contract key <<<"$spec"
-              actual="$(forge inspect "$contract" deployedBytecode | tr -d '\\n' | cast keccak)"
+              artifact="out/${contract}.sol/${contract}.json"
+              bytecode="$(jq -r '.deployedBytecode.object' "$artifact")"
+              test "$bytecode" != "null"
+              actual="$(cast keccak "$bytecode")"
               expected="$(jq -r ".contracts.${key}.runtimeCodeHash" "$GITHUB_WORKSPACE/$manifest")"
               test "${actual,,}" = "${expected,,}"
               echo "$contract runtime hash verified: $actual"
