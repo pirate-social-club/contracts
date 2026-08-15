@@ -58,8 +58,8 @@ jobs:
           test "$(jq -r '.source.optimizer' "$manifest")" = "true"
           test "$(jq -r '.source.optimizerRuns' "$manifest")" = "200"
           test "$(jq -r '.source.viaIr' "$manifest")" = "true"
-          (
-            cd "$source_dir/rewards"
+          failed=0
+          pushd "$source_dir/rewards" >/dev/null
             forge build --force
             for spec in \
               'RewardTicketPurchaseEscrowV1 purchaseEscrow' \
@@ -78,7 +78,12 @@ jobs:
               fi
               expected="$(jq -r ".contracts.${key}.runtimeCodeHash" "$GITHUB_WORKSPACE/$manifest")"
               echo "Runtime hash comparison for $contract: actual=$actual expected=$expected"
-              test "${actual,,}" = "${expected,,}"
-              echo "$contract runtime hash verified: $actual"
+              if [[ "${actual,,}" != "${expected,,}" ]]; then
+                echo "::error::$contract runtime hash does not match the deployment manifest"
+                failed=1
+              else
+                echo "$contract runtime hash verified: $actual"
+              fi
             done
-          )
+          popd >/dev/null
+          exit "$failed"
