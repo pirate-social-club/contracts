@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "status": "active-testnet",
+  "network": {
+    "name": "base-sepolia",
+    "chainId": 84532
+  },
+  "source": {
+    "repository": "pirate-social-club/contracts",
+    "commit": "6f812a870662530ba3a974135baab7cbd56a9c34",
+    "solc": "0.8.25",
+    "optimizer": true,
+    "optimizerRuns": 200,
+    "viaIr": true
+  },
+  "actors": {
+    "safe": "0x1cd289B6b232E1378d606ba550019E553685ad4C",
+    "safeOwners": ["0x9FAE89a82Dc5a61D80bfD3bb21BfCc2188431057"],
+    "safeThreshold": 1,
+    "operatorAndPublisher": "0xf3aB7E3cCbC89fEa75BFED4343CFc1e28C2f5f47",
+    "platformRevenue": "0xBc61B707dc52BCDF51D261DcdF72329723C9BB8F"
+  },
+  "dependencies": {
+    "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "jackpot": "0x465dA3c859f193A3807386387bEE941B2A4c3279",
+    "randomTicketBuyer": "0x53c04e7e5044B28Ea8A4F9c4b26E3Ac1aeb63746"
+  },
+  "policy": {
+    "maxTicketPriceAtomic": "10000",
+    "maxPurchaseCostAtomic": "100000",
+    "dailyCapAtomic": "200000",
+    "cutoffMarginSeconds": 300,
+    "maxTicketsPerPurchase": 10,
+    "maxTicketsPerClaim": 10,
+    "initialEscrowFundingAtomic": "100000"
+  },
+  "contracts": {
+    "purchaseEscrow": {
+      "address": "0x98E9Ce3bEaEEc3abCdBc2bD5F8495C55a14FA334",
+      "deploymentTransaction": "0xeb072b5b854389c9a88ad8429e0e91a44a05fa3eea1c358d3efb305d1c6603d0",
+      "deploymentBlock": 45444733,
+      "deployedAt": "2026-08-13T21:49:14Z",
+      "runtimeCodeHash": "0x0c8cff806b17b201bb373a6f28c754c38412e74ccaedb54bd977868b07a942c1",
+      "constructorArguments": [
+        "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "0x465dA3c859f193A3807386387bEE941B2A4c3279",
+        "0x53c04e7e5044B28Ea8A4F9c4b26E3Ac1aeb63746",
+        "0x1cd289B6b232E1378d606ba550019E553685ad4C",
+        "0xBc61B707dc52BCDF51D261DcdF72329723C9BB8F",
+        "0x1cd289B6b232E1378d606ba550019E553685ad4C",
+        "0xf3aB7E3cCbC89fEa75BFED4343CFc1e28C2f5f47",
+        "10000",
+        "100000",
+        "200000",
+        300,
+        10
+      ]
+    },
+    "commitmentRegistry": {
+      "address": "0x426819D5AA46bbCbf3B86E9b057FA5A01f80Dd2c",
+      "deploymentTransaction": "0x15c23a6680087be1c9cbab84588a27be7266ce13dcec2a9983a133878e252488",
+      "deploymentBlock": 45444796,
+      "deployedAt": "2026-08-13T21:51:20Z",
+      "runtimeCodeHash": "0x947a20e851bf4b86c410a6d44fc998aba320e85dc24ec96cee2811ea78220a48",
+      "constructorArguments": [
+        "0x1cd289B6b232E1378d606ba550019E553685ad4C",
+        "0xf3aB7E3cCbC89fEa75BFED4343CFc1e28C2f5f47"
+      ]
+    },
+    "safeClaimModule": {
+      "address": "0x02c949d00b7fDCfd379F2F93aacbC1249Fa52486",
+      "deploymentTransaction": "0xcd5a21640804d39bd4aba4710651127824e9de54df097bff4210d28441782840",
+      "deploymentBlock": 45465692,
+      "deployedAt": "2026-08-14T09:27:52Z",
+      "runtimeCodeHash": "0x964bfeebab670a616ff9136da9dc2d89b2deb6de5ee962f4b8d8e5dea0311b8e",
+      "constructorArguments": [
+        "0x1cd289B6b232E1378d606ba550019E553685ad4C",
+        "0x465dA3c859f193A3807386387bEE941B2A4c3279",
+        "0xf3aB7E3cCbC89fEa75BFED4343CFc1e28C2f5f47",
+        10
+      ]
+    }
+  },
+  "activation": {
+    "escrowFundingAndUnpauseTransaction": "0xe74abc6cbfc92e277bb2a3e1ef8c88841b516819e35c994f0befedd8c3e0fade",
+    "registryUnpauseTransaction": "0xe19eefccc0c602121468ef9eb324026d5be1fa0bccb737070762985c4cddaefa",
+    "claimModuleEnableAndUnpauseTransaction": "0x990bb973f560a8b5868dd3355c8c75250024e829e508c8c84a11d1c9b75ceb46",
+    "verifiedState": {
+      "escrowPaused": false,
+      "registryPaused": false,
+      "claimModulePaused": false,
+      "enabledSafeModules": ["0x02c949d00b7fDCfd379F2F93aacbC1249Fa52486"]
+    }
+  },
+  "secretBoundary": {
+    "provider": "Infisical",
+    "projectPath": "/services/megapot-automation",
+    "environment": "staging",
+    "githubRepository": "pirate-social-club/api",
+    "authentication": "GitHub OIDC",
+    "privateKeyFilesAllowed": false
+  }
+}

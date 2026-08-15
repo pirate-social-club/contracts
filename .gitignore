@@ -2,4 +2,10 @@ cache/
 out/
 broadcast/
 deployments/
+!rewards/deployments/
+rewards/deployments/*
+!rewards/deployments/base-sepolia/
+rewards/deployments/base-sepolia/*
+!rewards/deployments/base-sepolia/README.md
+!rewards/deployments/base-sepolia/2026-08-14.json
 /story/delivery/accounts/
