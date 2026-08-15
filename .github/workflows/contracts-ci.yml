@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       - name: Set up Foundry
         uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a
@@ -40,3 +42,33 @@ jobs:
       - name: Check rewards contract formatting
         working-directory: rewards
         run: forge fmt --check
+
+      - name: Verify Base Sepolia deployment provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="rewards/deployments/base-sepolia/2026-08-14.json"
+          source_commit="$(jq -r '.source.commit' "$manifest")"
+          test "$source_commit" != "null"
+          git cat-file -e "$source_commit^{commit}"
+          source_dir="$(mktemp -d)"
+          trap 'rm -rf "$source_dir"' EXIT
+          git archive "$source_commit" | tar -x -C "$source_dir"
+          test "$(jq -r '.source.solc' "$manifest")" = "0.8.25"
+          test "$(jq -r '.source.optimizer' "$manifest")" = "true"
+          test "$(jq -r '.source.optimizerRuns' "$manifest")" = "200"
+          test "$(jq -r '.source.viaIr' "$manifest")" = "true"
+          (
+            cd "$source_dir/rewards"
+            forge build --force
+            for spec in \
+              'RewardTicketPurchaseEscrowV1 purchaseEscrow' \
+              'RewardTicketCommitmentRegistryV1 commitmentRegistry' \
+              'RewardTicketSafeClaimModuleV1 safeClaimModule'; do
+              read -r contract key <<<"$spec"
+              actual="$(forge inspect "$contract" deployedBytecode | tr -d '\\n' | cast keccak)"
+              expected="$(jq -r ".contracts.${key}.runtimeCodeHash" "$GITHUB_WORKSPACE/$manifest")"
+              test "${actual,,}" = "${expected,,}"
+              echo "$contract runtime hash verified: $actual"
+            done
+          )
