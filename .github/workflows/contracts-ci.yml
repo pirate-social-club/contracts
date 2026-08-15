@@ -72,7 +72,10 @@ jobs:
               bytecode="$(jq -er '.deployedBytecode.object // .deployedBytecode' "$artifact")"
               test "${bytecode#0x}" != "$bytecode"
               echo "Runtime bytecode length: ${#bytecode}"
-              actual="$(cast keccak "$bytecode")"
+              if ! actual="$(cast keccak "$bytecode" 2>&1)"; then
+                echo "cast keccak failed for $contract: $actual"
+                exit 1
+              fi
               expected="$(jq -r ".contracts.${key}.runtimeCodeHash" "$GITHUB_WORKSPACE/$manifest")"
               test "${actual,,}" = "${expected,,}"
               echo "$contract runtime hash verified: $actual"
